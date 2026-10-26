@@ -19,6 +19,14 @@ const babel = pluginBabel({
 });
 
 export default defineConfig({
+  environments: {
+    lynx: {},
+    web: {},
+  },
+  server: {
+    host: '0.0.0.0',
+    port: 3000,
+  },
   resolve: {
     alias: {
       preact: require.resolve('preact'),
