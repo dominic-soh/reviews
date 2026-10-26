@@ -1,0 +1,18 @@
+{
+  "name": "reviews",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "check": "biome check .",
+    "format": "biome format --write .",
+    "test": "bun run --filter @reviews/app test",
+    "typecheck": "bun run --filter '*' typecheck"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.11"
+  }
+}

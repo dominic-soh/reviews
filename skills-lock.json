@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "skills": {
+    "lynx-api-docs": {
+      "source": "lynx-community/skills",
+      "sourceType": "github",
+      "skillPath": "skills/lynx-api-docs/SKILL.md",
+      "computedHash": "df938e634248d9d6122e33aacc68a6330cc6fdd601910e50dbf93672cc4b21ef"
+    },
+    "lynx-debug-info-remapping": {
+      "source": "lynx-community/skills",
+      "sourceType": "github",
+      "skillPath": "skills/lynx-debug-info-remapping/SKILL.md",
+      "computedHash": "318a1643ec21e2aa29c631d51de32326df296b6a419ace22afcfb50375a4e247"
+    },
+    "lynx-devtool": {
+      "source": "lynx-community/skills",
+      "sourceType": "github",
+      "skillPath": "skills/lynx-devtool/SKILL.md",
+      "computedHash": "33b355800eba74c5e10dd14b0ec6128c1ae8174c605820b281c2ee7b5f373015"
+    },
+    "lynx-trace-analysis": {
+      "source": "lynx-community/skills",
+      "sourceType": "github",
+      "skillPath": "skills/lynx-trace-analysis/SKILL.md",
+      "computedHash": "fbf9cd0ce5f2f33346bf78b90a665c321d30e8069cad099e110ebf890e727060"
+    },
+    "lynx-trace-record": {
+      "source": "lynx-community/skills",
+      "sourceType": "github",
+      "skillPath": "skills/lynx-trace-record/SKILL.md",
+      "computedHash": "6c0642baf468e8ba03a6b13dca583ab3bae9fbbbf8579e73d6208f0fd579cc1c"
+    },
+    "lynx-ui": {
+      "source": "lynx-community/skills",
+      "sourceType": "github",
+      "skillPath": "skills/lynx-ui/SKILL.md",
+      "computedHash": "a887f6737de566792e67449870df5bd30b98c0652765879d832bd038dc98b4a0"
+    },
+    "reactlynx-best-practices": {
+      "source": "lynx-community/skills",
+      "sourceType": "github",
+      "skillPath": "skills/reactlynx-best-practices/SKILL.md",
+      "computedHash": "8861f37a35cb4b5bb2fa5f819f82705ed2cd57e0448d5bee7989fe63ba6a8606"
+    },
+    "rspeedy-bundle-size": {
+      "source": "lynx-community/skills",
+      "sourceType": "github",
+      "skillPath": "skills/rspeedy-bundle-size/SKILL.md",
+      "computedHash": "549daea935444aefb82d644bccee340a99bf6ceb51a595ca8f3aa5b3a5cb8d6f"
+    }
+  }
+}
