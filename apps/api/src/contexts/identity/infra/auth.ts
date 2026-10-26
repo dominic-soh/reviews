@@ -5,8 +5,11 @@ import { db } from '../../../db';
 import { authSchema } from './auth-schema';
 import { sendMagicLink } from './mail';
 
+export const authSecret =
+  process.env.BETTER_AUTH_SECRET ?? 'dev-secret-dev-secret-dev-secret';
+
 export const auth = betterAuth({
-  secret: process.env.BETTER_AUTH_SECRET ?? 'dev-secret-dev-secret-dev-secret',
+  secret: authSecret,
   baseURL: process.env.BETTER_AUTH_URL ?? 'http://127.0.0.1:3001',
   database: drizzleAdapter(db, { provider: 'pg', schema: authSchema }),
   plugins: [

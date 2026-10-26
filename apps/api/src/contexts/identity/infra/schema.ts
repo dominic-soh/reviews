@@ -3,6 +3,7 @@ import { pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 export const users = pgTable('users', {
   id: text('id').primaryKey(),
   email: text('email').notNull().unique(),
+  personalEmail: text('personal_email').unique(),
   name: text('name').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()
@@ -43,6 +44,14 @@ export const agentTokens = pgTable('agent_tokens', {
   membershipId: text('membership_id')
     .notNull()
     .references(() => memberships.id),
+});
+
+export const personalSignIns = pgTable('personal_sign_ins', {
+  token: text('token').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
 });
 
 export const reportingLines = pgTable('reporting_lines', {

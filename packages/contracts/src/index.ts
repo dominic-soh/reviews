@@ -57,3 +57,15 @@ export const memberSchema = z.object({
 });
 
 export type Member = z.infer<typeof memberSchema>;
+
+export const userIdSchema = z.string().brand('UserId');
+
+export const personalActorSchema = z.object({
+  userId: userIdSchema,
+});
+
+export type PersonalActor = z.infer<typeof personalActorSchema>;
+
+export const personalEmailBodySchema = z.object({
+  email: z.email(),
+});
