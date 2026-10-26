@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@reviews/contracts": "workspace:*",
+    "better-auth": "^1.7.13",
     "drizzle-orm": "^0.44.7",
     "hono": "^4.10.7",
     "postgres": "^3.4.7"

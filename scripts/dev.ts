@@ -53,6 +53,9 @@ const sharedEnv = {
   DATABASE_URL: 'postgres://reviews:reviews@127.0.0.1:5432/reviews',
   SMTP_HOST: '127.0.0.1',
   SMTP_PORT: '1025',
+  MAILPIT_URL: 'http://127.0.0.1:8025',
+  BETTER_AUTH_SECRET: 'dev-secret-dev-secret-dev-secret',
+  BETTER_AUTH_URL: `http://127.0.0.1:${apiPort}`,
 };
 
 await run('docker', ['compose', 'up', '-d', '--wait'], repoRoot, sharedEnv);
