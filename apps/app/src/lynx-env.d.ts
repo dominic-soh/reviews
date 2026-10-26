@@ -2,6 +2,12 @@ declare module '@lynx-js/types' {
   interface GlobalProps {}
 }
 
-declare const __API_BASE__: string;
+declare global {
+  const __API_BASE__: string;
+}
+
+declare module 'background-only' {
+  export {};
+}
 
 export {};

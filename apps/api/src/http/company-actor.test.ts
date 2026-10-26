@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { companyActorSchema } from '@reviews/contracts';
 import { demoMembership } from '../contexts/identity/domain/demo';
 import { setMagicLinkDelivery } from '../contexts/identity/infra/mail';
 import { seedDemo } from '../contexts/identity/infra/seed';
@@ -46,10 +47,9 @@ describe('company actor', () => {
     );
 
     expect(actorResponse.status).toBe(200);
-    expect(await actorResponse.json()).toEqual({
-      membershipId: demoMembership.id,
-      companyId: demoMembership.companyId,
-      role: 'owner',
-    });
+    const actor = companyActorSchema.parse(await actorResponse.json());
+    expect(actor.role).toBe('owner');
+    expect(`${actor.membershipId}`).toBe(demoMembership.id);
+    expect(`${actor.companyId}`).toBe(demoMembership.companyId);
   });
 });

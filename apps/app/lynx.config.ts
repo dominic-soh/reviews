@@ -1,4 +1,5 @@
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 import { pluginQRCode } from '@lynx-js/qrcode-rsbuild-plugin';
 import { pluginReactLynx } from '@lynx-js/react-rsbuild-plugin';
 import { defineConfig } from '@lynx-js/rspeedy';
@@ -7,6 +8,9 @@ import { pluginTypeCheck } from '@rsbuild/plugin-type-check';
 import { pluginTailwindCSS } from 'rsbuild-plugin-tailwindcss';
 
 const require = createRequire(import.meta.url);
+const backgroundOnly = fileURLToPath(
+  new URL('./src/background-only-stub.ts', import.meta.url),
+);
 
 const compilerOn = process.env.REACT_COMPILER !== '0';
 
@@ -31,6 +35,12 @@ export default defineConfig({
     alias: {
       preact: require.resolve('preact'),
       'preact/hooks': require.resolve('preact/hooks'),
+      react: require.resolve('@lynx-js/react'),
+      'react/jsx-runtime': require.resolve('@lynx-js/react/jsx-runtime'),
+      'react/jsx-dev-runtime': require.resolve(
+        '@lynx-js/react/jsx-dev-runtime',
+      ),
+      'background-only': backgroundOnly,
     },
   },
   source: {

@@ -1,16 +1,5 @@
-import { PrimaryButton } from './ui/PrimaryButton';
+import { CompanyScreen } from './contexts/identity/screens/CompanyScreen';
 
 export function App() {
-  return (
-    <view className="p-4">
-      <text className="text-lg">Reviews</text>
-      <PrimaryButton
-        onPress={() => {
-          'background only';
-        }}
-      >
-        Continue
-      </PrimaryButton>
-    </view>
-  );
+  return <CompanyScreen />;
 }
