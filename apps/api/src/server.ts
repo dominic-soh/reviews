@@ -1,18 +1,9 @@
-const port = Number(process.env.PORT ?? 3001);
+import { app } from './http/app';
 
-function responseFor(pathname: string): Response {
-  switch (pathname) {
-    case '/health':
-      return Response.json({ ok: true });
-    default:
-      return new Response('not found', { status: 404 });
-  }
-}
+const port = Number(process.env.PORT ?? 3001);
 
 Bun.serve({
   hostname: '0.0.0.0',
   port,
-  fetch(request) {
-    return responseFor(new URL(request.url).pathname);
-  },
+  fetch: app.fetch,
 });

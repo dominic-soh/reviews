@@ -10,7 +10,7 @@
     "dev": "bun scripts/dev.ts",
     "check": "biome check .",
     "format": "biome format --write .",
-    "test": "bun run --filter @reviews/app test",
+    "test": "bun run --filter @reviews/app test && bun run --filter @reviews/api test",
     "typecheck": "bun run --filter '*' typecheck"
   },
   "devDependencies": {

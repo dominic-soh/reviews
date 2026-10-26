@@ -18,9 +18,14 @@ function lanAddress(): string {
   return '127.0.0.1';
 }
 
-function run(command: string, args: string[], cwd: string): Promise<void> {
+function run(
+  command: string,
+  args: string[],
+  cwd: string,
+  env: NodeJS.ProcessEnv,
+): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { cwd, stdio: 'inherit' });
+    const child = spawn(command, args, { cwd, env, stdio: 'inherit' });
     child.on('error', reject);
     child.on('exit', (code) => {
       if (code === 0) {
@@ -41,17 +46,18 @@ function start(
   return spawn(command, args, { cwd, env, stdio: 'inherit' });
 }
 
-await run('docker', ['compose', 'up', '-d', '--wait'], repoRoot);
-
-const apiBase = `http://${lanAddress()}:${apiPort}`;
 const sharedEnv = {
   ...process.env,
   PORT: apiPort,
-  API_BASE: apiBase,
+  API_BASE: `http://${lanAddress()}:${apiPort}`,
   DATABASE_URL: 'postgres://reviews:reviews@127.0.0.1:5432/reviews',
   SMTP_HOST: '127.0.0.1',
   SMTP_PORT: '1025',
 };
+
+await run('docker', ['compose', 'up', '-d', '--wait'], repoRoot, sharedEnv);
+await run('bun', ['src/migrate.ts'], join(repoRoot, 'apps/api'), sharedEnv);
+await run('bun', ['src/seed.ts'], join(repoRoot, 'apps/api'), sharedEnv);
 
 const api = start(
   'bun',
