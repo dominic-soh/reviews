@@ -1,17 +1,55 @@
+import { createRequire } from 'node:module';
 import { pluginQRCode } from '@lynx-js/qrcode-rsbuild-plugin';
 import { pluginReactLynx } from '@lynx-js/react-rsbuild-plugin';
 import { defineConfig } from '@lynx-js/rspeedy';
+import { pluginBabel } from '@rsbuild/plugin-babel';
 import { pluginTypeCheck } from '@rsbuild/plugin-type-check';
+import { pluginTailwindCSS } from 'rsbuild-plugin-tailwindcss';
+
+const require = createRequire(import.meta.url);
+
+const compilerOn = process.env.REACT_COMPILER !== '0';
+
+const babel = pluginBabel({
+  include: /\.(?:jsx|tsx)$/,
+  babelLoaderOptions(opts) {
+    opts.plugins ??= [];
+    opts.plugins.unshift(['babel-plugin-react-compiler', { target: '17' }]);
+  },
+});
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      preact: require.resolve('preact'),
+      'preact/hooks': require.resolve('preact/hooks'),
+    },
+  },
+  source: {
+    define: {
+      __API_BASE__: JSON.stringify(
+        process.env.API_BASE ?? 'http://127.0.0.1:3001',
+      ),
+    },
+  },
   plugins: [
+    ...(compilerOn ? [babel] : []),
     pluginQRCode({
       schema(url) {
-        // We use `?fullscreen=true` to open the page in LynxExplorer in full screen mode
         return `${url}?fullscreen=true`;
       },
     }),
-    pluginReactLynx(),
+    pluginReactLynx({
+      // The published encoder rejects anything above 3.9. Raise this when a
+      // compiler that can emit 4.1 is published. Host apps must stay at or
+      // above this value.
+      engineVersion: '3.9',
+      enableCSSInheritance: true,
+    }),
+    pluginTailwindCSS({
+      config: 'tailwind.config.ts',
+      exclude: [/node_modules/],
+    }),
     pluginTypeCheck(),
   ],
 });

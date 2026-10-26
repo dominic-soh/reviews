@@ -1,7 +1,16 @@
+import { PrimaryButton } from './ui/PrimaryButton';
+
 export function App() {
   return (
-    <view>
-      <text>Reviews</text>
+    <view className="p-4">
+      <text className="text-lg">Reviews</text>
+      <PrimaryButton
+        onPress={() => {
+          'background only';
+        }}
+      >
+        Continue
+      </PrimaryButton>
     </view>
   );
 }
