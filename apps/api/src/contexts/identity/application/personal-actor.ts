@@ -1,5 +1,6 @@
 import { eq, or } from 'drizzle-orm';
 import { db } from '../../../db';
+import { hostedApiOrigin } from '../../../preview-origin';
 import type { CompanyActor } from '../domain/company-actor';
 import { session, user } from '../infra/auth-schema';
 import { sendMagicLink } from '../infra/mail';
@@ -58,7 +59,7 @@ export async function requestPersonalLink(email: string): Promise<void> {
     userId: person.id,
     expiresAt: new Date(Date.now() + quarterHour),
   });
-  const base = process.env.BETTER_AUTH_URL ?? 'http://127.0.0.1:3001';
+  const base = hostedApiOrigin();
   await sendMagicLink(email, `${base}/sign-in/personal/verify?token=${token}`);
 }
 

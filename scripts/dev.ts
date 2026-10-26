@@ -1,22 +1,11 @@
 import { type ChildProcess, spawn } from 'node:child_process';
-import { networkInterfaces } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { advertisedHost } from '../apps/api/src/preview-origin';
 
 const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const apiPort = process.env.PORT ?? '3001';
-
-function lanAddress(): string {
-  const nets = networkInterfaces();
-  for (const entries of Object.values(nets)) {
-    for (const entry of entries ?? []) {
-      if (entry.family === 'IPv4' && !entry.internal) {
-        return entry.address;
-      }
-    }
-  }
-  return '127.0.0.1';
-}
+const hosted = `http://${advertisedHost()}:${apiPort}`;
 
 function run(
   command: string,
@@ -49,13 +38,13 @@ function start(
 const sharedEnv = {
   ...process.env,
   PORT: apiPort,
-  API_BASE: `http://${lanAddress()}:${apiPort}`,
+  API_BASE: hosted,
   DATABASE_URL: 'postgres://reviews:reviews@127.0.0.1:5432/reviews',
   SMTP_HOST: '127.0.0.1',
   SMTP_PORT: '1025',
   MAILPIT_URL: 'http://127.0.0.1:8025',
   BETTER_AUTH_SECRET: 'dev-secret-dev-secret-dev-secret',
-  BETTER_AUTH_URL: `http://127.0.0.1:${apiPort}`,
+  BETTER_AUTH_URL: hosted,
 };
 
 await run('docker', ['compose', 'up', '-d', '--wait'], repoRoot, sharedEnv);

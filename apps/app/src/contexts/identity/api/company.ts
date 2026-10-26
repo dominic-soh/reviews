@@ -31,7 +31,101 @@ export type InviteOutcome =
 
 export type CreateCompanyResult = 'created' | 'taken' | 'failed';
 
+type LynxPage = {
+  originUrl?: string;
+  queryItems?: Record<string, string | undefined>;
+};
+
+function lynxPage(): LynxPage | undefined {
+  const runtime = globalThis as {
+    lynx?: { __globalProps?: LynxPage };
+  };
+  return runtime.lynx?.__globalProps;
+}
+
+function browserHref(): string | undefined {
+  try {
+    const href = globalThis.location?.href;
+    if (href?.startsWith('http')) {
+      return href;
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
+
+function withoutSignIn(href: string): string {
+  const url = new URL(href);
+  url.searchParams.delete('sign-in');
+  return url.toString();
+}
+
+function bundleURL(): string | undefined {
+  const prefix = import.meta.env.ASSET_PREFIX;
+  if (
+    typeof prefix !== 'string' ||
+    !prefix.startsWith('http') ||
+    prefix.includes('<port>')
+  ) {
+    return undefined;
+  }
+  const base = prefix.endsWith('/') ? prefix : `${prefix}/`;
+  const url = new URL('main.lynx.bundle', base);
+  url.searchParams.set('fullscreen', 'true');
+  return url.toString();
+}
+
+function pageURL(): string | undefined {
+  const href = browserHref();
+  if (href) {
+    return withoutSignIn(href);
+  }
+  const originUrl = lynxPage()?.originUrl;
+  if (originUrl?.startsWith('http')) {
+    return withoutSignIn(originUrl);
+  }
+  return bundleURL();
+}
+
+function readSignInToken(): string | undefined {
+  const href = browserHref() ?? lynxPage()?.originUrl;
+  if (href?.startsWith('http')) {
+    try {
+      const token = new URL(href).searchParams.get('sign-in');
+      if (token) {
+        return token;
+      }
+    } catch {
+      return undefined;
+    }
+  }
+  return lynxPage()?.queryItems?.['sign-in'];
+}
+
+let signInConsumed = false;
+
+async function consumeSignInLink(): Promise<void> {
+  if (signInConsumed) {
+    return;
+  }
+  signInConsumed = true;
+  const token = readSignInToken();
+  if (!token) {
+    return;
+  }
+  try {
+    await fetch(
+      `${__API_BASE__}/api/auth/magic-link/verify?token=${encodeURIComponent(token)}`,
+      { credentials: 'include' },
+    );
+  } catch {
+    return;
+  }
+}
+
 async function loadCompanySession(): Promise<CompanySession> {
+  await consumeSignInLink();
   try {
     const response = await fetch(`${__API_BASE__}/company-actor`, {
       credentials: 'include',
@@ -148,6 +242,17 @@ async function request(
   }
 }
 
+function magicLinkBody(email: string): {
+  email: string;
+  callbackURL?: string;
+} {
+  const page = pageURL();
+  if (!page) {
+    return { email };
+  }
+  return { email, callbackURL: page };
+}
+
 export async function requestMagicLink(email: string): Promise<boolean> {
   try {
     const response = await fetch(
@@ -156,7 +261,7 @@ export async function requestMagicLink(email: string): Promise<boolean> {
         method: 'POST',
         credentials: 'include',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify(magicLinkBody(email)),
       },
     );
     return response.ok;

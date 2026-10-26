@@ -19,8 +19,7 @@ Sign-in is a magic link. Nothing in this flow has a password. `bun dev` seeds on
 2. Open the web preview. The first screen is "Welcome to Reviews".
 3. Enter `ada@demo.test` and press **Send sign-in link**. The screen changes to "Check your email".
 4. Open Mailpit at `http://127.0.0.1:8025`. The message subject is "Sign in to Reviews", and the body is the sign-in URL.
-5. Open that URL on this machine. It verifies the link against the API and sets the session cookie.
-6. Return to the web preview and reload it.
+5. Open that link in Lynx Explorer, or in the browser if it is the web preview. It is the page you started from, and opening it finishes sign-in there.
 
 Ada lands on the Demo company as the owner. The directory offers an invite. The org chart is empty apart from Ada.
 

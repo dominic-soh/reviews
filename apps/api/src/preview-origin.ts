@@ -18,6 +18,18 @@ function lanHosts(): string[] {
   return hosts;
 }
 
+export function advertisedHost(): string {
+  return lanHosts()[0] ?? '127.0.0.1';
+}
+
+export function hostedApiOrigin(): string {
+  if (process.env.BETTER_AUTH_URL) {
+    return process.env.BETTER_AUTH_URL;
+  }
+  const port = process.env.PORT ?? '3001';
+  return `http://${advertisedHost()}:${port}`;
+}
+
 function allowedHosts(): Set<string> {
   return new Set(['127.0.0.1', 'localhost', ...lanHosts()]);
 }

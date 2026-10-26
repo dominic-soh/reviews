@@ -79,6 +79,46 @@ describe('web preview CORS', () => {
     expect(signIn.headers.get('access-control-allow-credentials')).toBe('true');
   });
 
+  test('mails a return to the page that asked for the link', async () => {
+    await migrateDatabase();
+    await seedDemo();
+    let mailed = '';
+    setMagicLinkDelivery(async (_email, url) => {
+      mailed = url;
+    });
+    const page = `${previewOrigin}/main.lynx.bundle?fullscreen=true`;
+
+    const signIn = await app.request(
+      'http://127.0.0.1:3001/api/auth/sign-in/magic-link',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          origin: previewOrigin,
+        },
+        body: JSON.stringify({
+          email: 'ada@demo.test',
+          callbackURL: page,
+        }),
+      },
+    );
+
+    expect(signIn.status).toBe(200);
+    const mailedURL = new URL(mailed);
+    expect(`${mailedURL.origin}${mailedURL.pathname}`).toBe(
+      `${previewOrigin}/main.lynx.bundle`,
+    );
+    expect(mailedURL.searchParams.get('fullscreen')).toBe('true');
+    const token = mailedURL.searchParams.get('sign-in');
+    expect(token).toBeTruthy();
+
+    const verified = await app.request(
+      `http://127.0.0.1:3001/api/auth/magic-link/verify?token=${token}`,
+      { headers: { origin: previewOrigin } },
+    );
+    expect(verified.status).toBe(200);
+  });
+
   test('exposes company session responses and hides other origins', async () => {
     const allowed = await app.request('http://127.0.0.1:3001/company-actor', {
       headers: { origin: previewOrigin },
