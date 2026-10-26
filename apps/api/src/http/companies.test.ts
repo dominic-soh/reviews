@@ -54,7 +54,7 @@ describe('companies', () => {
     const grace = await signIn('grace@new.test');
     const created = await authed(grace, 'POST', '/companies', {
       name: 'Northwind',
-      slug: 'northwind',
+      slug: `northwind-${crypto.randomUUID().slice(0, 8)}`,
     });
     expect(created.status).toBe(200);
     const owner = companyActorSchema.parse(await created.json());

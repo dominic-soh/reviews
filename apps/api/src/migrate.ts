@@ -10,9 +10,22 @@ const migrationsFolder = join(
   '../drizzle',
 );
 
+async function ensureTenantRole(
+  client: ReturnType<typeof postgres>,
+): Promise<void> {
+  const existing = await client<{ rolname: string }[]>`
+    select rolname from pg_roles where rolname = 'reviews_app'
+  `;
+  if (existing.length > 0) {
+    return;
+  }
+  await client.unsafe('create role reviews_app noinherit');
+}
+
 export async function migrateDatabase(): Promise<void> {
   const migrationClient = postgres(databaseUrl(), { max: 1 });
   try {
+    await ensureTenantRole(migrationClient);
     await migrate(drizzle(migrationClient), { migrationsFolder });
   } finally {
     await migrationClient.end();

@@ -11,6 +11,7 @@ import {
   session,
 } from '../infra/auth-schema';
 import { companies, memberships, reportingLines, users } from '../infra/schema';
+import { asAppRole } from '../infra/tenant';
 import { type CommandResult, commandError } from './result';
 
 type InvitableRole = 'admin' | 'member';
@@ -325,24 +326,26 @@ export async function setManager(
 }
 
 export async function listMembers(actor: CompanyActor): Promise<MemberRow[]> {
-  const rows = await db
-    .select({
-      membershipId: memberships.id,
-      name: users.name,
-      email: users.email,
-      role: memberships.role,
-      managerMembershipId: reportingLines.managerMembershipId,
-    })
-    .from(memberships)
-    .innerJoin(users, eq(users.id, memberships.userId))
-    .leftJoin(reportingLines, eq(reportingLines.membershipId, memberships.id))
-    .where(eq(memberships.companyId, actor.companyId));
+  return asAppRole(actor.companyId, async (tx) => {
+    const rows = await tx
+      .select({
+        membershipId: memberships.id,
+        name: users.name,
+        email: users.email,
+        role: memberships.role,
+        managerMembershipId: reportingLines.managerMembershipId,
+      })
+      .from(memberships)
+      .innerJoin(users, eq(users.id, memberships.userId))
+      .leftJoin(reportingLines, eq(reportingLines.membershipId, memberships.id))
+      .where(eq(memberships.companyId, actor.companyId));
 
-  return rows.map((row) => ({
-    membershipId: row.membershipId,
-    name: row.name,
-    email: row.email,
-    role: membershipRole(row.role),
-    managerMembershipId: row.managerMembershipId,
-  }));
+    return rows.map((row) => ({
+      membershipId: row.membershipId,
+      name: row.name,
+      email: row.email,
+      role: membershipRole(row.role),
+      managerMembershipId: row.managerMembershipId,
+    }));
+  });
 }
