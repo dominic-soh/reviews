@@ -38,6 +38,8 @@ export const demoOrganization = {
   createdAt: seededAt,
 };
 
+export const demoAgentToken = 'demo-agent-token';
+
 export const demoAuthMember = {
   id: demoMembership.id,
   organizationId: demoCompany.id,

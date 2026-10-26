@@ -37,3 +37,10 @@ export const memberships = pgTable(
     uniqueIndex('memberships_company_user').on(table.companyId, table.userId),
   ],
 );
+
+export const agentTokens = pgTable('agent_tokens', {
+  token: text('token').primaryKey(),
+  membershipId: text('membership_id')
+    .notNull()
+    .references(() => memberships.id),
+});
