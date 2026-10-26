@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '../../../db';
 import { type CompanyActor, membershipRole } from '../domain/company-actor';
 import { member } from '../infra/auth-schema';
@@ -34,11 +34,19 @@ export async function companyActorForMembership(
 
 export async function companyActorForAuthUser(
   authUserId: string,
+  organizationId?: string | null,
 ): Promise<CompanyActor | null> {
   const members = await db
     .select()
     .from(member)
-    .where(eq(member.userId, authUserId));
+    .where(
+      organizationId
+        ? and(
+            eq(member.userId, authUserId),
+            eq(member.organizationId, organizationId),
+          )
+        : eq(member.userId, authUserId),
+    );
   const authMember = members[0];
   if (!authMember) {
     return null;

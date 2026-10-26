@@ -1,16 +1,19 @@
 import { Hono } from 'hono';
 import { companyActorForAuthUser } from '../application/company-actor';
-import { auth } from '../infra/auth';
+import { signedInUser } from './session';
 
 export const companyActorRoutes = new Hono();
 
 companyActorRoutes.get('/company-actor', async (c) => {
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
-  if (!session) {
+  const user = await signedInUser(c);
+  if (!user) {
     return c.json({ error: 'unauthenticated' }, 401);
   }
 
-  const actor = await companyActorForAuthUser(session.user.id);
+  const actor = await companyActorForAuthUser(
+    user.authUserId,
+    user.organizationId,
+  );
   if (!actor) {
     return c.json({ error: 'no membership' }, 403);
   }

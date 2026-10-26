@@ -44,3 +44,15 @@ export const agentTokens = pgTable('agent_tokens', {
     .notNull()
     .references(() => memberships.id),
 });
+
+export const reportingLines = pgTable('reporting_lines', {
+  membershipId: text('membership_id')
+    .primaryKey()
+    .references(() => memberships.id),
+  managerMembershipId: text('manager_membership_id')
+    .notNull()
+    .references(() => memberships.id),
+  companyId: text('company_id')
+    .notNull()
+    .references(() => companies.id),
+});

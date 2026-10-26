@@ -20,3 +20,40 @@ export const companyActorSchema = z.object({
 });
 
 export type CompanyActor = z.infer<typeof companyActorSchema>;
+
+export const invitableRoleSchema = z.enum(['admin', 'member']);
+
+export const createCompanyBodySchema = z.object({
+  name: z.string().min(1),
+  slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+});
+
+export const inviteBodySchema = z.object({
+  email: z.email(),
+  role: invitableRoleSchema,
+});
+
+export const invitationSchema = z.object({
+  id: z.string(),
+  email: z.email(),
+  role: invitableRoleSchema,
+  status: z.literal('pending'),
+});
+
+export const setRoleBodySchema = z.object({
+  role: invitableRoleSchema,
+});
+
+export const setManagerBodySchema = z.object({
+  managerMembershipId: membershipIdSchema.nullable(),
+});
+
+export const memberSchema = z.object({
+  membershipId: membershipIdSchema,
+  name: z.string(),
+  email: z.email(),
+  role: membershipRoleSchema,
+  managerMembershipId: membershipIdSchema.nullable(),
+});
+
+export type Member = z.infer<typeof memberSchema>;
