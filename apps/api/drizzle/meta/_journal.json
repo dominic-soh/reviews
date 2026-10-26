@@ -43,6 +43,13 @@
       "when": 1793004200000,
       "tag": "0005_personal_login",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793004300000,
+      "tag": "0006_ladders",
+      "breakpoints": true
     }
   ]
 }

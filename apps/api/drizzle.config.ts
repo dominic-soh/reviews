@@ -5,6 +5,7 @@ export default defineConfig({
   schema: [
     './src/contexts/identity/infra/schema.ts',
     './src/contexts/identity/infra/auth-schema.ts',
+    './src/contexts/ladder/infra/schema.ts',
   ],
   out: './drizzle',
   dbCredentials: {
