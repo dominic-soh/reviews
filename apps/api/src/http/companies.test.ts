@@ -1,6 +1,14 @@
 import { describe, expect, test } from 'bun:test';
-import { companyActorSchema, memberSchema } from '@reviews/contracts';
-import { setMagicLinkDelivery } from '../contexts/identity/infra/mail';
+import {
+  companyActorSchema,
+  invitationSchema,
+  memberSchema,
+  myInvitationSchema,
+} from '@reviews/contracts';
+import {
+  setInviteDelivery,
+  setMagicLinkDelivery,
+} from '../contexts/identity/infra/mail';
 import { seedDemo } from '../contexts/identity/infra/seed';
 import { migrateDatabase } from '../migrate';
 import { app } from './app';
@@ -59,6 +67,12 @@ describe('companies', () => {
     expect(created.status).toBe(200);
     const owner = companyActorSchema.parse(await created.json());
     expect(owner.role).toBe('owner');
+    expect(owner.companyName).toBe('Northwind');
+
+    const sent: { email: string; companyName: string }[] = [];
+    setInviteDelivery(async (email, companyName) => {
+      sent.push({ email, companyName });
+    });
 
     const actor = await authed(grace, 'GET', '/company-actor');
     expect(actor.status).toBe(200);
@@ -68,9 +82,39 @@ describe('companies', () => {
       role: 'member',
     });
     expect(invited.status).toBe(200);
-    const invitation = (await invited.json()) as { id: string };
+    const invitation = invitationSchema.parse(await invited.json());
+    expect(sent).toEqual([{ email: 'bea@new.test', companyName: 'Northwind' }]);
+
+    const pending = invitationSchema
+      .array()
+      .parse(await (await authed(grace, 'GET', '/invites')).json());
+    expect(pending.map((row) => row.email)).toEqual(['bea@new.test']);
+
+    const again = await authed(grace, 'POST', '/invites', {
+      email: 'bea@new.test',
+      role: 'member',
+    });
+    expect(again.status).toBe(409);
+    expect(await again.json()).toEqual({
+      error: 'conflict',
+      reason: 'invited',
+    });
+
+    const alreadyMember = await authed(grace, 'POST', '/invites', {
+      email: 'grace@new.test',
+      role: 'member',
+    });
+    expect(alreadyMember.status).toBe(409);
+    expect(await alreadyMember.json()).toEqual({
+      error: 'conflict',
+      reason: 'member',
+    });
 
     const bea = await signIn('bea@new.test');
+    const mine = myInvitationSchema
+      .array()
+      .parse(await (await authed(bea, 'GET', '/my-invites')).json());
+    expect(mine.map((row) => row.companyName)).toEqual(['Northwind']);
     const accepted = await authed(
       bea,
       'POST',
@@ -78,6 +122,14 @@ describe('companies', () => {
     );
     expect(accepted.status).toBe(200);
     const memberActor = companyActorSchema.parse(await accepted.json());
+    expect(memberActor.companyName).toBe('Northwind');
+
+    const hidden = await authed(bea, 'GET', '/invites');
+    expect(hidden.status).toBe(403);
+    const cleared = invitationSchema
+      .array()
+      .parse(await (await authed(grace, 'GET', '/invites')).json());
+    expect(cleared).toEqual([]);
 
     const denied = await authed(bea, 'POST', '/invites', {
       email: 'cy@new.test',

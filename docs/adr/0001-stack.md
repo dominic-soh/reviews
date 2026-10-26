@@ -4,7 +4,7 @@ Each section is the decision, why, what it costs, and what would reverse it.
 
 ## ReactLynx
 
-The client is ReactLynx, built with Rspeedy, `engineVersion` 3.9, React Compiler on, lynx-ui behind our own `ui/` wrappers, Tailwind v3, TanStack Query, Zustand, and react-router v6 `MemoryRouter`.
+The client is ReactLynx, built with Rsbuild and `pluginLynx`, `engineVersion` 3.9, React Compiler on, lynx-ui behind our own `ui/` wrappers, Tailwind v3, TanStack Query, Zustand, and react-router v6 `MemoryRouter`.
 
 ReactLynx is the official framework. It has lynx-ui and a first-party test renderer. Vue Lynx is still pre-alpha, has one maintainer, and has no lynx-ui. The API surface is React 17. React 18 needs `@lynx-js/react/compat`.
 

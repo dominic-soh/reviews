@@ -17,11 +17,15 @@ export const companyActorSchema = z.object({
   membershipId: membershipIdSchema,
   companyId: companyIdSchema,
   role: membershipRoleSchema,
+  companyName: z.string(),
+  slug: z.string(),
 });
 
 export type CompanyActor = z.infer<typeof companyActorSchema>;
 
 export const invitableRoleSchema = z.enum(['admin', 'member']);
+
+export type InvitableRole = z.infer<typeof invitableRoleSchema>;
 
 export const createCompanyBodySchema = z.object({
   name: z.string().min(1),
@@ -39,6 +43,18 @@ export const invitationSchema = z.object({
   role: invitableRoleSchema,
   status: z.literal('pending'),
 });
+
+export const inviteConflictSchema = z.object({
+  error: z.literal('conflict'),
+  reason: z.enum(['member', 'invited']),
+});
+
+export const myInvitationSchema = invitationSchema.extend({
+  companyName: z.string(),
+});
+
+export type Invitation = z.infer<typeof invitationSchema>;
+export type MyInvitation = z.infer<typeof myInvitationSchema>;
 
 export const setRoleBodySchema = z.object({
   role: invitableRoleSchema,

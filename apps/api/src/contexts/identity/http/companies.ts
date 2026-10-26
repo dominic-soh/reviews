@@ -10,6 +10,8 @@ import {
   createCompany,
   inviteMember,
   listMembers,
+  listMyInvites,
+  listPendingInvites,
   setManager,
   setMembershipRole,
 } from '../application/companies';
@@ -52,6 +54,22 @@ async function actorFor(c: Parameters<typeof signedInUser>[0]) {
   }
   return { user, actor };
 }
+
+companyRoutes.get('/invites', async (c) => {
+  const current = await actorFor(c);
+  if (!current) {
+    return c.json({ error: 'unauthenticated' }, 401);
+  }
+  return respond(c, await listPendingInvites(current.actor));
+});
+
+companyRoutes.get('/my-invites', async (c) => {
+  const user = await signedInUser(c);
+  if (!user) {
+    return c.json({ error: 'unauthenticated' }, 401);
+  }
+  return c.json(await listMyInvites(user.email));
+});
 
 companyRoutes.post('/invites', async (c) => {
   const current = await actorFor(c);

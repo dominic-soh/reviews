@@ -1,2 +1,14 @@
 @tailwind base;
 @tailwind utilities;
+
+page,
+text,
+input,
+textarea {
+  font-family: -apple-system, system-ui, sans-serif;
+}
+
+input,
+textarea {
+  cursor: text;
+}

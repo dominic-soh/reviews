@@ -46,6 +46,9 @@
       "includes": ["apps/app/src/**/*.css"],
       "linter": {
         "rules": {
+          "correctness": {
+            "noUnknownTypeSelector": "off"
+          },
           "suspicious": {
             "noUnknownAtRules": "off"
           }

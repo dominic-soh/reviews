@@ -2,7 +2,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { pluginQRCode } from '@lynx-js/qrcode-rsbuild-plugin';
 import { pluginReactLynx } from '@lynx-js/react-rsbuild-plugin';
-import { defineConfig } from '@lynx-js/rspeedy';
+import { defineConfig } from '@rsbuild/core';
 import { pluginBabel } from '@rsbuild/plugin-babel';
 import { pluginTypeCheck } from '@rsbuild/plugin-type-check';
 import { pluginTailwindCSS } from 'rsbuild-plugin-tailwindcss';
@@ -28,7 +28,6 @@ export default defineConfig({
     web: {},
   },
   server: {
-    host: '0.0.0.0',
     port: 3000,
   },
   resolve: {
@@ -44,6 +43,9 @@ export default defineConfig({
     },
   },
   source: {
+    entry: {
+      main: './src/index.tsx',
+    },
     define: {
       __API_BASE__: JSON.stringify(
         process.env.API_BASE ?? 'http://127.0.0.1:3001',

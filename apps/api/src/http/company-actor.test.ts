@@ -49,6 +49,8 @@ describe('company actor', () => {
     expect(actorResponse.status).toBe(200);
     const actor = companyActorSchema.parse(await actorResponse.json());
     expect(actor.role).toBe('owner');
+    expect(actor.companyName).toBe('Demo');
+    expect(actor.slug).toBe('demo');
     expect(`${actor.membershipId}`).toBe(demoMembership.id);
     expect(`${actor.companyId}`).toBe(demoMembership.companyId);
   });

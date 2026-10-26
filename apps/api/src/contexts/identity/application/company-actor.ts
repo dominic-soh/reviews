@@ -2,14 +2,20 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '../../../db';
 import { type CompanyActor, membershipRole } from '../domain/company-actor';
 import { member } from '../infra/auth-schema';
-import { agentTokens, memberships } from '../infra/schema';
+import { agentTokens, companies, memberships } from '../infra/schema';
 
 export async function companyActorForMembership(
   membershipId: string,
 ): Promise<CompanyActor | null> {
   const rows = await db
-    .select()
+    .select({
+      id: memberships.id,
+      companyId: memberships.companyId,
+      companyName: companies.name,
+      slug: companies.slug,
+    })
     .from(memberships)
+    .innerJoin(companies, eq(companies.id, memberships.companyId))
     .where(eq(memberships.id, membershipId));
   const membership = rows[0];
   if (!membership) {
@@ -29,6 +35,8 @@ export async function companyActorForMembership(
     membershipId: membership.id,
     companyId: membership.companyId,
     role: membershipRole(authMember.role),
+    companyName: membership.companyName,
+    slug: membership.slug,
   };
 }
 

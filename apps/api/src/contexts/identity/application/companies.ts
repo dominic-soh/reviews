@@ -10,6 +10,7 @@ import {
   organization,
   session,
 } from '../infra/auth-schema';
+import { sendInvite } from '../infra/mail';
 import { companies, memberships, reportingLines, users } from '../infra/schema';
 import { asAppRole } from '../infra/tenant';
 import { type CommandResult, commandError } from './result';
@@ -99,7 +100,13 @@ export async function createCompany(input: {
 
   return {
     ok: true,
-    value: { membershipId, companyId, role: 'owner' },
+    value: {
+      membershipId,
+      companyId,
+      role: 'owner',
+      companyName: input.companyName,
+      slug: input.slug,
+    },
   };
 }
 
@@ -110,6 +117,15 @@ export async function inviteMember(
 ): Promise<CommandResult<Invitation>> {
   if (!canInvite(actor.role)) {
     return commandError('forbidden');
+  }
+
+  const companyRows = await db
+    .select()
+    .from(companies)
+    .where(eq(companies.id, actor.companyId));
+  const company = companyRows[0];
+  if (!company) {
+    return commandError('not-found');
   }
 
   const existingUsers = await db
@@ -128,7 +144,7 @@ export async function inviteMember(
         ),
       );
     if (existingMembership[0]) {
-      return commandError('conflict');
+      return commandError('conflict', 'member');
     }
   }
 
@@ -143,7 +159,7 @@ export async function inviteMember(
       ),
     );
   if (pending[0]) {
-    return commandError('conflict');
+    return commandError('conflict', 'invited');
   }
 
   const id = newId('invitation');
@@ -158,6 +174,13 @@ export async function inviteMember(
     createdAt: now,
     inviterId: authUserId,
   });
+
+  try {
+    await sendInvite(input.email, company.name, id);
+  } catch (error) {
+    await db.delete(invitation).where(eq(invitation.id, id));
+    throw error;
+  }
 
   return {
     ok: true,
@@ -200,6 +223,15 @@ export async function acceptInvite(input: {
     return commandError('invalid');
   }
 
+  const companyRows = await db
+    .select()
+    .from(companies)
+    .where(eq(companies.id, pending.organizationId));
+  const company = companyRows[0];
+  if (!company) {
+    return commandError('not-found');
+  }
+
   const domainUser = await domainUserId(input.email, input.name);
   const membershipId = newId('membership');
   const now = new Date();
@@ -234,8 +266,83 @@ export async function acceptInvite(input: {
       membershipId,
       companyId: pending.organizationId,
       role,
+      companyName: company.name,
+      slug: company.slug,
     },
   };
+}
+
+type PendingInviteRow = {
+  id: string;
+  email: string;
+  role: string | null;
+  expiresAt: Date;
+  companyName?: string;
+};
+
+function openInvitation(row: PendingInviteRow): Invitation | null {
+  if (row.expiresAt.getTime() < Date.now()) {
+    return null;
+  }
+  const role = invitedRole(row.role);
+  if (!role) {
+    return null;
+  }
+  return { id: row.id, email: row.email, role, status: 'pending' };
+}
+
+export async function listPendingInvites(
+  actor: CompanyActor,
+): Promise<CommandResult<Invitation[]>> {
+  if (!canInvite(actor.role)) {
+    return commandError('forbidden');
+  }
+  const rows = await db
+    .select({
+      id: invitation.id,
+      email: invitation.email,
+      role: invitation.role,
+      expiresAt: invitation.expiresAt,
+    })
+    .from(invitation)
+    .where(
+      and(
+        eq(invitation.organizationId, actor.companyId),
+        eq(invitation.status, 'pending'),
+      ),
+    );
+  const invites: Invitation[] = [];
+  for (const row of rows) {
+    const open = openInvitation(row);
+    if (open) {
+      invites.push(open);
+    }
+  }
+  return { ok: true, value: invites };
+}
+
+export type MyInvitation = Invitation & { companyName: string };
+
+export async function listMyInvites(email: string): Promise<MyInvitation[]> {
+  const rows = await db
+    .select({
+      id: invitation.id,
+      email: invitation.email,
+      role: invitation.role,
+      expiresAt: invitation.expiresAt,
+      companyName: organization.name,
+    })
+    .from(invitation)
+    .innerJoin(organization, eq(organization.id, invitation.organizationId))
+    .where(and(eq(invitation.email, email), eq(invitation.status, 'pending')));
+  const invites: MyInvitation[] = [];
+  for (const row of rows) {
+    const open = openInvitation(row);
+    if (open) {
+      invites.push({ ...open, companyName: row.companyName });
+    }
+  }
+  return invites;
 }
 
 export async function setMembershipRole(

@@ -14,6 +14,6 @@ test('App', async () => {
       <App />
     </QueryClientProvider>,
   );
-  expect(await findByText('Reviews')).toBeInTheDocument();
-  expect(await findByText('Sign in')).toBeInTheDocument();
+  expect(await findByText('Welcome to Reviews')).toBeInTheDocument();
+  expect(await findByText('Send sign-in link')).toBeInTheDocument();
 });

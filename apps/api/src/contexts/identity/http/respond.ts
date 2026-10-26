@@ -1,22 +1,30 @@
 import type { Context } from 'hono';
-import type { CommandResult } from '../application/result';
+import type { CommandFailure, CommandResult } from '../application/result';
+
+function statusFor(error: CommandFailure['error']): 400 | 403 | 404 | 409 {
+  switch (error) {
+    case 'forbidden':
+      return 403;
+    case 'not-found':
+      return 404;
+    case 'conflict':
+      return 409;
+    case 'invalid':
+      return 400;
+    default: {
+      const unreachable: never = error;
+      return unreachable;
+    }
+  }
+}
 
 export function respond<T>(c: Context, result: CommandResult<T>) {
   if (result.ok) {
     return c.json(result.value);
   }
-  switch (result.error) {
-    case 'forbidden':
-      return c.json({ error: result.error }, 403);
-    case 'not-found':
-      return c.json({ error: result.error }, 404);
-    case 'conflict':
-      return c.json({ error: result.error }, 409);
-    case 'invalid':
-      return c.json({ error: result.error }, 400);
-    default: {
-      const unreachable: never = result.error;
-      return c.json({ error: unreachable }, 500);
-    }
+  const status = statusFor(result.error);
+  if (result.reason) {
+    return c.json({ error: result.error, reason: result.reason }, status);
   }
+  return c.json({ error: result.error }, status);
 }

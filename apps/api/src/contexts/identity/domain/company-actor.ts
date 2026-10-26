@@ -4,6 +4,8 @@ export type CompanyActor = {
   membershipId: string;
   companyId: string;
   role: MembershipRole;
+  companyName: string;
+  slug: string;
 };
 
 export function membershipRole(role: string): MembershipRole {
