@@ -1,8 +1,6 @@
 import { Hono } from 'hono';
-import { companyActorForAuthUser } from '../../identity/application/company-actor';
-import { isPersonalLogin } from '../../identity/domain/login-kind';
 import { respond } from '../../identity/http/respond';
-import { signedInUser } from '../../identity/http/session';
+import { companyActor } from '../../identity/http/session';
 import {
   addCriterion,
   addLevel,
@@ -61,69 +59,51 @@ function expectationBody(
 
 export const ladderRoutes = new Hono();
 
-async function actorFor(c: Parameters<typeof signedInUser>[0]) {
-  const user = await signedInUser(c);
-  if (!user || isPersonalLogin(user.loginKind)) {
-    return null;
-  }
-  return companyActorForAuthUser(user.authUserId, user.organizationId);
-}
-
-ladderRoutes.post('/ladders', async (c) => {
-  const actor = await actorFor(c);
-  if (!actor) {
-    return c.json({ error: 'unauthenticated' }, 401);
-  }
+ladderRoutes.post('/ladders', companyActor, async (c) => {
   const body = nameBody(await c.req.json());
   if (!body) {
     return c.json({ error: 'invalid' }, 400);
   }
-  return respond(c, await createLadder(actor, body.name));
+  return respond(c, await createLadder(c.var.actor, body.name));
 });
 
-ladderRoutes.post('/ladder-versions/:id/levels', async (c) => {
-  const actor = await actorFor(c);
-  if (!actor) {
-    return c.json({ error: 'unauthenticated' }, 401);
-  }
+ladderRoutes.post('/ladder-versions/:id/levels', companyActor, async (c) => {
   const body = levelBody(await c.req.json());
   if (!body) {
     return c.json({ error: 'invalid' }, 400);
   }
   return respond(
     c,
-    await addLevel(actor, c.req.param('id'), body.name, body.rank),
+    await addLevel(c.var.actor, c.req.param('id'), body.name, body.rank),
   );
 });
 
-ladderRoutes.post('/ladder-versions/:id/criteria', async (c) => {
-  const actor = await actorFor(c);
-  if (!actor) {
-    return c.json({ error: 'unauthenticated' }, 401);
-  }
+ladderRoutes.post('/ladder-versions/:id/criteria', companyActor, async (c) => {
   const body = nameBody(await c.req.json());
   if (!body) {
     return c.json({ error: 'invalid' }, 400);
   }
-  return respond(c, await addCriterion(actor, c.req.param('id'), body.name));
+  return respond(
+    c,
+    await addCriterion(c.var.actor, c.req.param('id'), body.name),
+  );
 });
 
-ladderRoutes.put('/ladder-versions/:id/expectations', async (c) => {
-  const actor = await actorFor(c);
-  if (!actor) {
-    return c.json({ error: 'unauthenticated' }, 401);
-  }
-  const body = expectationBody(await c.req.json());
-  if (!body) {
-    return c.json({ error: 'invalid' }, 400);
-  }
-  return respond(c, await setExpectation(actor, c.req.param('id'), body));
-});
+ladderRoutes.put(
+  '/ladder-versions/:id/expectations',
+  companyActor,
+  async (c) => {
+    const body = expectationBody(await c.req.json());
+    if (!body) {
+      return c.json({ error: 'invalid' }, 400);
+    }
+    return respond(
+      c,
+      await setExpectation(c.var.actor, c.req.param('id'), body),
+    );
+  },
+);
 
-ladderRoutes.post('/ladder-versions/:id/publish', async (c) => {
-  const actor = await actorFor(c);
-  if (!actor) {
-    return c.json({ error: 'unauthenticated' }, 401);
-  }
-  return respond(c, await publishLadder(actor, c.req.param('id')));
+ladderRoutes.post('/ladder-versions/:id/publish', companyActor, async (c) => {
+  return respond(c, await publishLadder(c.var.actor, c.req.param('id')));
 });

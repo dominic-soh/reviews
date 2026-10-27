@@ -15,21 +15,17 @@ import {
   setManager,
   setMembershipRole,
 } from '../application/companies';
-import { companyActorForAuthUser } from '../application/company-actor';
 import { respond } from './respond';
-import { signedInUser } from './session';
+import { companyActor, companyLogin } from './session';
 
 export const companyRoutes = new Hono();
 
-companyRoutes.post('/companies', async (c) => {
-  const user = await signedInUser(c);
-  if (!user) {
-    return c.json({ error: 'unauthenticated' }, 401);
-  }
+companyRoutes.post('/companies', companyLogin, async (c) => {
   const body = createCompanyBodySchema.safeParse(await c.req.json());
   if (!body.success) {
     return c.json({ error: 'invalid' }, 400);
   }
+  const user = c.var.user;
   const result = await createCompany({
     authUserId: user.authUserId,
     email: user.email,
@@ -40,57 +36,27 @@ companyRoutes.post('/companies', async (c) => {
   return respond(c, result);
 });
 
-async function actorFor(c: Parameters<typeof signedInUser>[0]) {
-  const user = await signedInUser(c);
-  if (!user) {
-    return null;
-  }
-  const actor = await companyActorForAuthUser(
-    user.authUserId,
-    user.organizationId,
-  );
-  if (!actor) {
-    return null;
-  }
-  return { user, actor };
-}
+companyRoutes.get('/invites', companyActor, async (c) =>
+  respond(c, await listPendingInvites(c.var.actor)),
+);
 
-companyRoutes.get('/invites', async (c) => {
-  const current = await actorFor(c);
-  if (!current) {
-    return c.json({ error: 'unauthenticated' }, 401);
-  }
-  return respond(c, await listPendingInvites(current.actor));
-});
+companyRoutes.get('/my-invites', companyLogin, async (c) =>
+  c.json(await listMyInvites(c.var.user.email)),
+);
 
-companyRoutes.get('/my-invites', async (c) => {
-  const user = await signedInUser(c);
-  if (!user) {
-    return c.json({ error: 'unauthenticated' }, 401);
-  }
-  return c.json(await listMyInvites(user.email));
-});
-
-companyRoutes.post('/invites', async (c) => {
-  const current = await actorFor(c);
-  if (!current) {
-    return c.json({ error: 'unauthenticated' }, 401);
-  }
+companyRoutes.post('/invites', companyActor, async (c) => {
   const body = inviteBodySchema.safeParse(await c.req.json());
   if (!body.success) {
     return c.json({ error: 'invalid' }, 400);
   }
   return respond(
     c,
-    await inviteMember(current.actor, current.user.authUserId, body.data),
+    await inviteMember(c.var.actor, c.var.user.authUserId, body.data),
   );
 });
 
-companyRoutes.post('/invites/:id/accept', async (c) => {
-  const user = await signedInUser(c);
-  if (!user) {
-    return c.json({ error: 'unauthenticated' }, 401);
-  }
+companyRoutes.post('/invites/:id/accept', companyLogin, async (c) => {
+  const user = c.var.user;
   return respond(
     c,
     await acceptInvite({
@@ -102,26 +68,18 @@ companyRoutes.post('/invites/:id/accept', async (c) => {
   );
 });
 
-companyRoutes.patch('/memberships/:id', async (c) => {
-  const current = await actorFor(c);
-  if (!current) {
-    return c.json({ error: 'unauthenticated' }, 401);
-  }
+companyRoutes.patch('/memberships/:id', companyActor, async (c) => {
   const body = setRoleBodySchema.safeParse(await c.req.json());
   if (!body.success) {
     return c.json({ error: 'invalid' }, 400);
   }
   return respond(
     c,
-    await setMembershipRole(current.actor, c.req.param('id'), body.data.role),
+    await setMembershipRole(c.var.actor, c.req.param('id'), body.data.role),
   );
 });
 
-companyRoutes.put('/memberships/:id/manager', async (c) => {
-  const current = await actorFor(c);
-  if (!current) {
-    return c.json({ error: 'unauthenticated' }, 401);
-  }
+companyRoutes.put('/memberships/:id/manager', companyActor, async (c) => {
   const body = setManagerBodySchema.safeParse(await c.req.json());
   if (!body.success) {
     return c.json({ error: 'invalid' }, 400);
@@ -129,17 +87,13 @@ companyRoutes.put('/memberships/:id/manager', async (c) => {
   return respond(
     c,
     await setManager(
-      current.actor,
+      c.var.actor,
       c.req.param('id'),
       body.data.managerMembershipId,
     ),
   );
 });
 
-companyRoutes.get('/members', async (c) => {
-  const current = await actorFor(c);
-  if (!current) {
-    return c.json({ error: 'unauthenticated' }, 401);
-  }
-  return c.json(await listMembers(current.actor));
-});
+companyRoutes.get('/members', companyActor, async (c) =>
+  c.json(await listMembers(c.var.actor)),
+);
