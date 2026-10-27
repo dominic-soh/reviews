@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { authConfig, isOriginAllowed } from '../auth-config';
 import { companyRoutes } from '../contexts/identity/http/companies';
 import { companyActorRoutes } from '../contexts/identity/http/company-actor';
 import { personalRoutes } from '../contexts/identity/http/personal';
@@ -8,14 +9,13 @@ import { auth } from '../contexts/identity/infra/auth';
 import { mcpRoutes } from '../contexts/identity/mcp/whoami';
 import { ladderRoutes } from '../contexts/ladder/http/ladders';
 import { db } from '../db';
-import { previewOriginAllowed } from '../preview-origin';
 
 export const app = new Hono();
 
 app.use(
   '*',
   cors({
-    origin: (origin) => (previewOriginAllowed(origin) ? origin : null),
+    origin: (origin) => (isOriginAllowed(authConfig, origin) ? origin : null),
     credentials: true,
     exposeHeaders: ['set-auth-token'],
   }),

@@ -1,7 +1,7 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { advertisedHost } from '../apps/api/src/preview-origin';
+import { advertisedHost } from '../apps/api/src/auth-config';
 
 const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const apiPort = process.env.PORT ?? '3001';
