@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { db } from '../../../db';
 import { type CompanyActor, membershipRole } from '../domain/company-actor';
 import { member } from '../infra/auth-schema';
@@ -54,7 +54,9 @@ export async function companyActorForAuthUser(
             eq(member.organizationId, organizationId),
           )
         : eq(member.userId, authUserId),
-    );
+    )
+    .orderBy(asc(member.createdAt), asc(member.id))
+    .limit(1);
   const authMember = members[0];
   if (!authMember) {
     return null;
