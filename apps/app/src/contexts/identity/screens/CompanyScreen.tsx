@@ -1,7 +1,6 @@
-import { useEffect, useState } from '@lynx-js/react';
+import { useState } from '@lynx-js/react';
 import type { InvitableRole } from '@reviews/contracts';
 import { useQueryClient } from '@tanstack/react-query';
-import { useSession } from '../../../app/session';
 import {
   acceptInvite,
   createCompany,
@@ -42,20 +41,11 @@ export function CompanyScreen() {
   const pendingInvites = usePendingInvites(canInvite);
   const myInvites = useMyInvites(isOnboarding);
   const queryClient = useQueryClient();
-  const setCompanyName = useSession((stored) => stored.setCompanyName);
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [step, setStep] = useState<SignInStep>('email');
   const [notice, setNotice] = useState('');
   const [setupInvite, setSetupInvite] = useState(false);
-
-  useEffect(() => {
-    if (state?.kind !== 'company') {
-      setCompanyName(null);
-      return;
-    }
-    setCompanyName(state.actor.companyName);
-  }, [state, setCompanyName]);
 
   async function submitInvites(
     emails: string[],

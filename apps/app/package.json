@@ -18,8 +18,7 @@
     "@tanstack/react-query": "^5.104.5",
     "preact": "npm:@lynx-js/internal-preact@11.0.0-rc.1-20260903085447-f95471a",
     "react-compiler-runtime": "^19.1.0-rc.3",
-    "react-router": "6.30.6",
-    "zustand": "^5.0.16"
+    "react-router": "6.30.6"
   },
   "devDependencies": {
     "@lynx-js/preact-devtools": "^5.0.1-20260827072047-5f77e12",
