@@ -9,6 +9,36 @@ import { app } from './app';
 
 const previewOrigin = 'http://127.0.0.1:3000';
 
+function cookieHeader(response: Response): string {
+  return response.headers
+    .getSetCookie()
+    .map((cookie) => cookie.split(';')[0] ?? '')
+    .filter((cookie) => cookie.length > 0)
+    .join('; ');
+}
+
+async function signInDemoUser(): Promise<string> {
+  let magicUrl = '';
+  setMagicLinkDelivery(async (_email, url) => {
+    magicUrl = url;
+  });
+  const started = await app.request(
+    'http://127.0.0.1:3001/api/auth/sign-in/magic-link',
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        origin: 'http://127.0.0.1:3001',
+      },
+      body: JSON.stringify({ email: 'ada@demo.test' }),
+    },
+  );
+
+  expect(started.status).toBe(200);
+  const verified = await app.request(magicUrl, { redirect: 'manual' });
+  return cookieHeader(verified);
+}
+
 describe('GET /health', () => {
   test('reports that the database is reachable', async () => {
     await migrateDatabase();
@@ -23,6 +53,44 @@ describe('GET /health', () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ok: true, database: 'reachable' });
     expect(seeded).toHaveLength(1);
+  });
+});
+
+describe('organization plugin routes', () => {
+  test('are not exposed over HTTP while normal auth remains available', async () => {
+    await migrateDatabase();
+    await seedDemo();
+
+    const cookie = await signInDemoUser();
+    const organizationRequests = [
+      { method: 'POST', path: '/api/auth/organization/create' },
+      { method: 'POST', path: '/api/auth/organization/update-member-role' },
+      { method: 'POST', path: '/api/auth/organization/remove-member' },
+      { method: 'POST', path: '/api/auth/organization/accept-invitation' },
+      { method: 'GET', path: '/api/auth/organization/list' },
+    ];
+    const statuses = await Promise.all(
+      organizationRequests.map(async ({ method, path }) => {
+        const response = await app.request(`http://127.0.0.1:3001${path}`, {
+          method,
+          headers: {
+            cookie,
+            origin: 'http://127.0.0.1:3001',
+          },
+        });
+        return response.status;
+      }),
+    );
+
+    expect(statuses).toEqual([404, 404, 404, 404, 404]);
+
+    const session = await app.request(
+      'http://127.0.0.1:3001/api/auth/get-session',
+      {
+        headers: { cookie, origin: 'http://127.0.0.1:3001' },
+      },
+    );
+    expect(session.status).toBe(200);
   });
 });
 

@@ -21,6 +21,7 @@ app.use(
   }),
 );
 
+app.all('/api/auth/organization/*', (c) => c.notFound());
 app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw));
 app.route('/', companyActorRoutes);
 app.route('/', companyRoutes);
