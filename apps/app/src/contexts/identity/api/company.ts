@@ -14,6 +14,7 @@ import {
   myInvitationSchema,
 } from '@reviews/contracts';
 import { useQuery } from '@tanstack/react-query';
+import { authHeaders, prepareSession, rememberSession } from './session-carry';
 
 export type { InvitableRole, Invitation, MyInvitation };
 
@@ -43,16 +44,39 @@ function lynxPage(): LynxPage | undefined {
   return runtime.lynx?.__globalProps;
 }
 
+function hrefOf(value: unknown): string | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+  const href = (value as { href?: unknown }).href;
+  if (typeof href !== 'string' || !href.startsWith('http')) {
+    return undefined;
+  }
+  if (href.includes('/static/js/')) {
+    return undefined;
+  }
+  return href;
+}
+
 function browserHref(): string | undefined {
+  const runtime = globalThis as {
+    document?: { location?: unknown };
+    window?: { location?: unknown };
+    location?: unknown;
+  };
+  return (
+    hrefOf(runtime.document?.location) ??
+    hrefOf(runtime.window?.location) ??
+    hrefOf(runtime.location)
+  );
+}
+
+function signInFromHref(href: string): string | undefined {
   try {
-    const href = globalThis.location?.href;
-    if (href?.startsWith('http')) {
-      return href;
-    }
+    return new URL(href).searchParams.get('sign-in') ?? undefined;
   } catch {
     return undefined;
   }
-  return undefined;
 }
 
 function withoutSignIn(href: string): string {
@@ -89,18 +113,38 @@ function pageURL(): string | undefined {
 }
 
 function readSignInToken(): string | undefined {
-  const href = browserHref() ?? lynxPage()?.originUrl;
-  if (href?.startsWith('http')) {
-    try {
-      const token = new URL(href).searchParams.get('sign-in');
-      if (token) {
-        return token;
-      }
-    } catch {
-      return undefined;
+  const fromProps = lynxPage()?.queryItems?.['sign-in'];
+  if (fromProps) {
+    return fromProps;
+  }
+  const hrefs = [browserHref(), lynxPage()?.originUrl];
+  for (const href of hrefs) {
+    if (!href) {
+      continue;
+    }
+    const token = signInFromHref(href);
+    if (token) {
+      return token;
     }
   }
-  return lynxPage()?.queryItems?.['sign-in'];
+  return undefined;
+}
+
+async function authedFetch(url: string, init?: RequestInit): Promise<Response> {
+  await prepareSession();
+  const headers = new Headers(init?.headers);
+  for (const [key, value] of Object.entries(authHeaders())) {
+    if (!headers.has(key)) {
+      headers.set(key, value);
+    }
+  }
+  const response = await fetch(url, {
+    ...init,
+    headers,
+    credentials: 'include',
+  });
+  rememberSession(response);
+  return response;
 }
 
 let signInConsumed = false;
@@ -115,9 +159,8 @@ async function consumeSignInLink(): Promise<void> {
     return;
   }
   try {
-    await fetch(
+    await authedFetch(
       `${__API_BASE__}/api/auth/magic-link/verify?token=${encodeURIComponent(token)}`,
-      { credentials: 'include' },
     );
   } catch {
     return;
@@ -127,9 +170,7 @@ async function consumeSignInLink(): Promise<void> {
 async function loadCompanySession(): Promise<CompanySession> {
   await consumeSignInLink();
   try {
-    const response = await fetch(`${__API_BASE__}/company-actor`, {
-      credentials: 'include',
-    });
+    const response = await authedFetch(`${__API_BASE__}/company-actor`);
     switch (response.status) {
       case 401:
         return { kind: 'signed-out' };
@@ -158,9 +199,7 @@ export function useCompanySession() {
 
 async function loadMembers(): Promise<Member[]> {
   try {
-    const response = await fetch(`${__API_BASE__}/members`, {
-      credentials: 'include',
-    });
+    const response = await authedFetch(`${__API_BASE__}/members`);
     if (!response.ok) {
       return [];
     }
@@ -181,9 +220,7 @@ export function useMembers(enabled: boolean) {
 
 async function loadPendingInvites(): Promise<Invitation[]> {
   try {
-    const response = await fetch(`${__API_BASE__}/invites`, {
-      credentials: 'include',
-    });
+    const response = await authedFetch(`${__API_BASE__}/invites`);
     if (!response.ok) {
       return [];
     }
@@ -204,9 +241,7 @@ export function usePendingInvites(enabled: boolean) {
 
 async function loadMyInvites(): Promise<MyInvitation[]> {
   try {
-    const response = await fetch(`${__API_BASE__}/my-invites`, {
-      credentials: 'include',
-    });
+    const response = await authedFetch(`${__API_BASE__}/my-invites`);
     if (!response.ok) {
       return [];
     }
@@ -231,9 +266,8 @@ async function request(
   body?: unknown,
 ): Promise<Response | null> {
   try {
-    return await fetch(`${__API_BASE__}${path}`, {
+    return await authedFetch(`${__API_BASE__}${path}`, {
       method,
-      credentials: 'include',
       headers: { 'content-type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
@@ -255,13 +289,47 @@ function magicLinkBody(email: string): {
 
 export async function requestMagicLink(email: string): Promise<boolean> {
   try {
-    const response = await fetch(
+    const response = await authedFetch(
       `${__API_BASE__}/api/auth/sign-in/magic-link`,
       {
         method: 'POST',
-        credentials: 'include',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(magicLinkBody(email)),
+      },
+    );
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function requestSignInCode(email: string): Promise<boolean> {
+  try {
+    const response = await authedFetch(
+      `${__API_BASE__}/api/auth/email-otp/send-verification-otp`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email, type: 'sign-in' }),
+      },
+    );
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function submitSignInCode(
+  email: string,
+  otp: string,
+): Promise<boolean> {
+  try {
+    const response = await authedFetch(
+      `${__API_BASE__}/api/auth/sign-in/email-otp`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email, otp }),
       },
     );
     return response.ok;

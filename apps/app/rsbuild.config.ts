@@ -14,6 +14,23 @@ const backgroundOnly = fileURLToPath(
 
 const compilerOn = process.env.REACT_COMPILER !== '0';
 
+const signInPropsScript = `(function(){try{var params=new URLSearchParams(location.search);var token=params.get("sign-in");if(!token)return;var key="lynx-web-core-global-props";var props={};try{props=JSON.parse(localStorage.getItem(key)||"{}")||{}}catch(e){props={}}var items=props.queryItems||{};items["sign-in"]=token;props.queryItems=items;localStorage.setItem(key,JSON.stringify(props));}catch(e){}})();`;
+
+function isPreviewDocument(url: string | undefined): boolean {
+  const path = (url ?? '').split('?')[0];
+  return path === '/__web_preview' || path === '/__web_preview/';
+}
+
+function withSignInScript(body: string): string {
+  if (body.includes('lynx-web-core-global-props')) {
+    return body;
+  }
+  if (!body.includes('<head>')) {
+    return body;
+  }
+  return body.replace('<head>', `<head><script>${signInPropsScript}</script>`);
+}
+
 const babel = pluginBabel({
   include: /\.(?:jsx|tsx)$/,
   babelLoaderOptions(opts) {
@@ -29,6 +46,34 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    setup({ action, server }) {
+      if (action !== 'dev') {
+        return;
+      }
+      server.middlewares.use((req, res, next) => {
+        if (!isPreviewDocument(req.url)) {
+          next();
+          return;
+        }
+        const chunks: Buffer[] = [];
+        const end = res.end.bind(res);
+        res.write = ((chunk: unknown) => {
+          if (typeof chunk === 'string' || Buffer.isBuffer(chunk)) {
+            chunks.push(Buffer.from(chunk));
+          }
+          return true;
+        }) as typeof res.write;
+        res.end = ((chunk?: unknown) => {
+          if (typeof chunk === 'string' || Buffer.isBuffer(chunk)) {
+            chunks.push(Buffer.from(chunk));
+          }
+          const body = withSignInScript(Buffer.concat(chunks).toString('utf8'));
+          res.setHeader('content-length', Buffer.byteLength(body));
+          return end(body);
+        }) as typeof res.end;
+        next();
+      });
+    },
   },
   resolve: {
     alias: {
@@ -41,6 +86,18 @@ export default defineConfig({
       ),
       'background-only': backgroundOnly,
     },
+  },
+  html: {
+    tags: [
+      {
+        tag: 'script',
+        head: true,
+        append: false,
+        // The web preview loads the bundle by casename and drops every other
+        // query param. Lynx reads this global props object on startup.
+        children: signInPropsScript,
+      },
+    ],
   },
   source: {
     entry: {

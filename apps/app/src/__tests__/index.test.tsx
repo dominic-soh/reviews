@@ -16,4 +16,5 @@ test('App', async () => {
   );
   expect(await findByText('Welcome to Reviews')).toBeInTheDocument();
   expect(await findByText('Send sign-in link')).toBeInTheDocument();
+  expect(await findByText('Email me a code')).toBeInTheDocument();
 });

@@ -7,8 +7,10 @@ import {
   createCompany,
   inviteMember,
   requestMagicLink,
+  requestSignInCode,
   setManager,
   setMembershipRole,
+  submitSignInCode,
   useCompanySession,
   useMembers,
   useMyInvites,
@@ -20,7 +22,7 @@ import { InvitePeople } from './InvitePeople';
 import { JoinInvite } from './JoinInvite';
 import { MyPlace } from './MyPlace';
 import { Onboarding } from './Onboarding';
-import { SignIn } from './SignIn';
+import { SignIn, type SignInStep } from './SignIn';
 
 function Loading() {
   return (
@@ -42,7 +44,9 @@ export function CompanyScreen() {
   const queryClient = useQueryClient();
   const setCompanyName = useSession((stored) => stored.setCompanyName);
   const [email, setEmail] = useState('');
-  const [sent, setSent] = useState(false);
+  const [code, setCode] = useState('');
+  const [step, setStep] = useState<SignInStep>('email');
+  const [notice, setNotice] = useState('');
   const [setupInvite, setSetupInvite] = useState(false);
 
   useEffect(() => {
@@ -178,14 +182,51 @@ export function CompanyScreen() {
       return (
         <SignIn
           email={email}
-          sent={sent}
+          code={code}
+          step={step}
+          notice={notice}
           onChange={setEmail}
-          onSubmit={() => {
+          onCodeChange={setCode}
+          onSubmitLink={() => {
             'background only';
-            void requestMagicLink(email).then(setSent);
+            void requestMagicLink(email).then((sent) => {
+              if (!sent) {
+                setNotice('Could not send a link.');
+                return;
+              }
+              setNotice('');
+              setStep('link');
+            });
+          }}
+          onRequestCode={() => {
+            'background only';
+            void requestSignInCode(email).then((sent) => {
+              if (!sent) {
+                setNotice('Could not send a code.');
+                return;
+              }
+              setNotice('');
+              setCode('');
+              setStep('code');
+            });
+          }}
+          onSubmitCode={() => {
+            'background only';
+            void submitSignInCode(email, code).then(async (signedIn) => {
+              if (!signedIn) {
+                setNotice('That code did not work.');
+                return;
+              }
+              setNotice('');
+              await queryClient.invalidateQueries({
+                queryKey: ['company-actor'],
+              });
+            });
           }}
           onReset={() => {
-            setSent(false);
+            setStep('email');
+            setCode('');
+            setNotice('');
           }}
         />
       );

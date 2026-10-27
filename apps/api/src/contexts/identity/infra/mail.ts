@@ -32,6 +32,22 @@ export async function sendMagicLink(email: string, url: string): Promise<void> {
   await deliverMagicLink(email, url);
 }
 
+type SignInCodeDelivery = (email: string, code: string) => Promise<void>;
+
+let deliverSignInCode: SignInCodeDelivery = (email, code) =>
+  deliverToMailpit(email, 'Your Reviews sign-in code', code);
+
+export function setSignInCodeDelivery(next: SignInCodeDelivery): void {
+  deliverSignInCode = next;
+}
+
+export async function sendSignInCode(
+  email: string,
+  code: string,
+): Promise<void> {
+  await deliverSignInCode(email, code);
+}
+
 type InviteDelivery = (
   email: string,
   companyName: string,

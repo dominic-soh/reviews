@@ -13,8 +13,37 @@ export type SignedInUser = {
   loginKind: LoginKind;
 };
 
+function headersWithBearer(headers: Headers): Headers {
+  const authorization = headers.get('authorization');
+  if (!authorization) {
+    return headers;
+  }
+  const prefix = 'bearer ';
+  if (!authorization.toLowerCase().startsWith(prefix)) {
+    return headers;
+  }
+  const token = authorization.slice(prefix.length).trim();
+  if (!token) {
+    return headers;
+  }
+  const pair = `better-auth.session_token=${token}`;
+  const cookie = headers.get('cookie');
+  if (!cookie) {
+    headers.set('cookie', pair);
+    return headers;
+  }
+  const kept = cookie
+    .split(';')
+    .map((part) => part.trim())
+    .filter((part) => !part.startsWith('better-auth.session_token='));
+  kept.push(pair);
+  headers.set('cookie', kept.join('; '));
+  return headers;
+}
+
 export async function signedInUser(c: Context): Promise<SignedInUser | null> {
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
+  const headers = headersWithBearer(new Headers(c.req.raw.headers));
+  const session = await auth.api.getSession({ headers });
   if (!session) {
     return null;
   }

@@ -1,6 +1,6 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { magicLink, organization } from 'better-auth/plugins';
+import { bearer, emailOTP, magicLink, organization } from 'better-auth/plugins';
 import { db } from '../../../db';
 import {
   hostedApiOrigin,
@@ -8,7 +8,7 @@ import {
   trustedPreviewOrigins,
 } from '../../../preview-origin';
 import { authSchema } from './auth-schema';
-import { sendMagicLink } from './mail';
+import { sendMagicLink, sendSignInCode } from './mail';
 
 export const authSecret =
   process.env.BETTER_AUTH_SECRET ?? 'dev-secret-dev-secret-dev-secret';
@@ -42,6 +42,25 @@ export const auth = betterAuth({
   trustedOrigins: trustedPreviewOrigins(),
   database: drizzleAdapter(db, { provider: 'pg', schema: authSchema }),
   plugins: [
+    bearer(),
+    emailOTP({
+      storeOTP: 'hashed',
+      async sendVerificationOTP({ email, otp, type }) {
+        switch (type) {
+          case 'sign-in':
+            await sendSignInCode(email, otp);
+            return;
+          case 'email-verification':
+          case 'forget-password':
+          case 'change-email':
+            return;
+          default: {
+            const unreachable: never = type;
+            return unreachable;
+          }
+        }
+      },
+    }),
     magicLink({
       sendMagicLink: async ({ email, url, token }) => {
         await sendMagicLink(email, mailedSignInLink(url, token));

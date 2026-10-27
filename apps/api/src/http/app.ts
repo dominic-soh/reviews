@@ -17,6 +17,7 @@ app.use(
   cors({
     origin: (origin) => (previewOriginAllowed(origin) ? origin : null),
     credentials: true,
+    exposeHeaders: ['set-auth-token'],
   }),
 );
 
