@@ -9,6 +9,7 @@ export function EmailField(props: {
       value={props.value}
       placeholder="Work email"
       type="email"
+      maxLength={254}
       onChange={props.onChange}
     />
   );

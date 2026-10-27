@@ -9,7 +9,16 @@ const backgroundOnly = fileURLToPath(
 );
 
 export default defineConfig({
-  extends: withLynxConfig(),
+  extends: withLynxConfig({
+    modifyRstestConfig(config) {
+      const setupFiles = config.setupFiles ?? [];
+      const files = Array.isArray(setupFiles) ? setupFiles : [setupFiles];
+      return {
+        ...config,
+        setupFiles: [...files, './src/__tests__/setup.ts'],
+      };
+    },
+  }),
   resolve: {
     alias: {
       'background-only': backgroundOnly,
