@@ -1,16 +1,15 @@
+import { TextField } from './TextField';
+
 export function EmailField(props: {
   value: string;
   onChange: (value: string) => void;
 }) {
   return (
-    <input
-      className="border border-gray-300 rounded-xl px-3 py-3 text-base"
+    <TextField
+      value={props.value}
       placeholder="Work email"
-      default-value={props.value}
-      bindinput={(event) => {
-        'background only';
-        props.onChange(event.detail.value);
-      }}
+      type="email"
+      onChange={props.onChange}
     />
   );
 }
