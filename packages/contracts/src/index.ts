@@ -90,3 +90,17 @@ export const personalCodeBodySchema = z.object({
   email: z.email(),
   code: z.string().regex(/^\d{6}$/),
 });
+
+export const ladderNameBodySchema = z.object({
+  name: z.string().min(1),
+});
+
+export const ladderLevelBodySchema = ladderNameBodySchema.extend({
+  rank: z.number().refine(Number.isInteger),
+});
+
+export const ladderExpectationBodySchema = z.object({
+  levelId: z.string(),
+  criterionId: z.string(),
+  body: z.string(),
+});

@@ -117,4 +117,36 @@ describe('ladders', () => {
       ),
     ).toBe('Leads a team');
   });
+
+  test('invalid ladder bodies are rejected', async () => {
+    await migrateDatabase();
+    await seedDemo();
+    const cookie = await signIn(demoUser.email);
+    const versionId = '00000000-0000-0000-0000-000000000000';
+    const cases = [
+      { method: 'POST', path: '/ladders', body: {} },
+      { method: 'POST', path: '/ladders', body: { name: '' } },
+      {
+        method: 'POST',
+        path: `/ladder-versions/${versionId}/levels`,
+        body: { name: 'Senior', rank: 1.5 },
+      },
+      {
+        method: 'PUT',
+        path: `/ladder-versions/${versionId}/expectations`,
+        body: { criterionId: 'c', body: 'Leads a team' },
+      },
+    ];
+
+    for (const entry of cases) {
+      const response = await authed(
+        cookie,
+        entry.method,
+        entry.path,
+        entry.body,
+      );
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ error: 'invalid' });
+    }
+  });
 });
