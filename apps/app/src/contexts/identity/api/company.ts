@@ -37,6 +37,15 @@ export type InviteOutcome =
 
 export type CreateCompanyResult = 'created' | 'taken' | 'failed';
 
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super(`Request failed with status ${status}`);
+    this.status = status;
+  }
+}
+
 type LynxPage = {
   originUrl?: string;
   queryItems?: Record<string, string | undefined>;
@@ -218,15 +227,11 @@ export async function signOut(): Promise<void> {
 }
 
 async function loadMembers(): Promise<Member[]> {
-  try {
-    const response = await authedFetch(`${__API_BASE__}/members`);
-    if (!response.ok) {
-      return [];
-    }
-    return memberSchema.array().parse(await response.json());
-  } catch {
-    return [];
+  const response = await authedFetch(`${__API_BASE__}/members`);
+  if (!response.ok) {
+    throw new ApiError(response.status);
   }
+  return memberSchema.array().parse(await response.json());
 }
 
 export function useMembers(enabled: boolean) {
@@ -239,15 +244,11 @@ export function useMembers(enabled: boolean) {
 }
 
 async function loadPendingInvites(): Promise<Invitation[]> {
-  try {
-    const response = await authedFetch(`${__API_BASE__}/invites`);
-    if (!response.ok) {
-      return [];
-    }
-    return invitationSchema.array().parse(await response.json());
-  } catch {
-    return [];
+  const response = await authedFetch(`${__API_BASE__}/invites`);
+  if (!response.ok) {
+    throw new ApiError(response.status);
   }
+  return invitationSchema.array().parse(await response.json());
 }
 
 export function usePendingInvites(enabled: boolean) {
@@ -260,15 +261,11 @@ export function usePendingInvites(enabled: boolean) {
 }
 
 async function loadMyInvites(): Promise<MyInvitation[]> {
-  try {
-    const response = await authedFetch(`${__API_BASE__}/my-invites`);
-    if (!response.ok) {
-      return [];
-    }
-    return myInvitationSchema.array().parse(await response.json());
-  } catch {
-    return [];
+  const response = await authedFetch(`${__API_BASE__}/my-invites`);
+  if (!response.ok) {
+    throw new ApiError(response.status);
   }
+  return myInvitationSchema.array().parse(await response.json());
 }
 
 export function useMyInvites(enabled: boolean) {
