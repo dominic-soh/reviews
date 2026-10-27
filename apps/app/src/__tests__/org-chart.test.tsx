@@ -48,6 +48,7 @@ test('org chart names each report and offers an invite', async () => {
       onInvite={async () => []}
       onSetManager={async () => true}
       onSetRole={async () => true}
+      onSignOut={() => undefined}
     />,
   );
   expect(await findByText('Bea')).toBeInTheDocument();
@@ -59,7 +60,7 @@ test('org chart names each report and offers an invite', async () => {
 
 test('onboarding asks for a company', async () => {
   const { findByText } = render(
-    <Onboarding onCreate={async () => 'created'} />,
+    <Onboarding onCreate={async () => 'created'} onSignOut={() => undefined} />,
   );
   expect(await findByText('Step 1 of 2')).toBeInTheDocument();
   expect(await findByText('Create your company')).toBeInTheDocument();
@@ -68,7 +69,12 @@ test('onboarding asks for a company', async () => {
 
 test('a member sees their own place', async () => {
   const { findByText, queryByText } = render(
-    <MyPlace companyName="Demo" member={members[1]} managerName="Ada" />,
+    <MyPlace
+      companyName="Demo"
+      member={members[1]}
+      managerName="Ada"
+      onSignOut={() => undefined}
+    />,
   );
   expect(await findByText('Your place')).toBeInTheDocument();
   expect(await findByText('Ada')).toBeInTheDocument();

@@ -14,7 +14,12 @@ import {
   myInvitationSchema,
 } from '@reviews/contracts';
 import { useQuery } from '@tanstack/react-query';
-import { authHeaders, prepareSession, rememberSession } from './session-carry';
+import {
+  authHeaders,
+  forgetSession,
+  prepareSession,
+  rememberSession,
+} from './session-carry';
 
 export type { InvitableRole, Invitation, MyInvitation };
 
@@ -133,7 +138,9 @@ function readSignInToken(): string | undefined {
 async function authedFetch(url: string, init?: RequestInit): Promise<Response> {
   await prepareSession();
   const headers = new Headers(init?.headers);
-  for (const [key, value] of Object.entries(authHeaders())) {
+  const tokenHeaders = authHeaders();
+  const hadToken = Object.keys(tokenHeaders).length > 0;
+  for (const [key, value] of Object.entries(tokenHeaders)) {
     if (!headers.has(key)) {
       headers.set(key, value);
     }
@@ -144,6 +151,9 @@ async function authedFetch(url: string, init?: RequestInit): Promise<Response> {
     credentials: 'include',
   });
   rememberSession(response);
+  if (hadToken && response.status === 401) {
+    forgetSession();
+  }
   return response;
 }
 
@@ -195,6 +205,16 @@ export function useCompanySession() {
     retry: false,
     queryFn: loadCompanySession,
   });
+}
+
+export async function signOut(): Promise<void> {
+  try {
+    await authedFetch(`${__API_BASE__}/api/auth/sign-out`, { method: 'POST' });
+  } catch {
+    return;
+  } finally {
+    forgetSession();
+  }
 }
 
 async function loadMembers(): Promise<Member[]> {

@@ -9,6 +9,7 @@ import {
   requestSignInCode,
   setManager,
   setMembershipRole,
+  signOut,
   submitSignInCode,
   useCompanySession,
   useMembers,
@@ -46,6 +47,18 @@ export function CompanyScreen() {
   const [step, setStep] = useState<SignInStep>('email');
   const [notice, setNotice] = useState('');
   const [setupInvite, setSetupInvite] = useState(false);
+
+  function handleSignOut(): void {
+    'background only';
+    void signOut().then(async () => {
+      setEmail('');
+      setCode('');
+      setStep('email');
+      setNotice('');
+      setSetupInvite(false);
+      await queryClient.resetQueries();
+    });
+  }
 
   async function submitInvites(
     emails: string[],
@@ -104,6 +117,7 @@ export function CompanyScreen() {
             companyName={state.actor.companyName}
             member={me}
             managerName={manager?.name ?? null}
+            onSignOut={handleSignOut}
           />
         );
       }
@@ -129,6 +143,7 @@ export function CompanyScreen() {
             await queryClient.invalidateQueries({ queryKey: ['members'] });
             return ok;
           }}
+          onSignOut={handleSignOut}
         />
       );
     }
@@ -149,6 +164,7 @@ export function CompanyScreen() {
               await queryClient.invalidateQueries({ queryKey: ['my-invites'] });
               return ok;
             }}
+            onSignOut={handleSignOut}
           />
         );
       }
@@ -166,6 +182,7 @@ export function CompanyScreen() {
             setSetupInvite(true);
             return result;
           }}
+          onSignOut={handleSignOut}
         />
       );
     case 'signed-out':

@@ -1,10 +1,12 @@
 import type { Member } from '@reviews/contracts';
+import { Button } from '../../../ui/Button';
 import { roleLabel } from './org';
 
 export function MyPlace(props: {
   companyName: string;
   member: Member;
   managerName: string | null;
+  onSignOut: () => void;
 }) {
   const manager = props.managerName ?? 'No manager yet';
   return (
@@ -18,6 +20,11 @@ export function MyPlace(props: {
         </text>
         <text className="text-base mt-3">{roleLabel(props.member.role)}</text>
         <text className="text-base text-gray-600 mt-1">{manager}</text>
+      </view>
+      <view className="mt-6">
+        <Button onClick={props.onSignOut}>
+          <text className="text-sm text-gray-500">Sign out</text>
+        </Button>
       </view>
     </view>
   );
