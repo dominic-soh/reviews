@@ -5,11 +5,19 @@ import {
   memberSchema,
   myInvitationSchema,
 } from '@reviews/contracts';
+import { and, eq } from 'drizzle-orm';
+import { invitation } from '../contexts/identity/infra/auth-schema';
 import {
   setInviteDelivery,
   setMagicLinkDelivery,
 } from '../contexts/identity/infra/mail';
+import {
+  companies,
+  memberships,
+  users,
+} from '../contexts/identity/infra/schema';
 import { seedDemo } from '../contexts/identity/infra/seed';
+import { db } from '../db';
 import { migrateDatabase } from '../migrate';
 import { app } from './app';
 
@@ -177,4 +185,115 @@ describe('companies', () => {
     );
     expect(demoteOwner.status).toBe(403);
   });
+
+  test('concurrent creates with the same slug end in one company and conflicts', async () => {
+    await migrateDatabase();
+    const slug = `race-${crypto.randomUUID().slice(0, 8)}`;
+    const founders: string[] = [];
+    for (const n of [1, 2, 3, 4, 5]) {
+      founders.push(await signIn(`${slug}-${n}@new.test`));
+    }
+
+    const responses = await Promise.all(
+      founders.map((cookie) =>
+        authed(cookie, 'POST', '/companies', { name: 'Race', slug }),
+      ),
+    );
+
+    expect(responses.map((response) => response.status).sort()).toEqual([
+      200, 409, 409, 409, 409,
+    ]);
+    const rows = await db
+      .select()
+      .from(companies)
+      .where(eq(companies.slug, slug));
+    expect(rows.length).toBe(1);
+  });
+
+  test('accepting an invitation to a company you already belong to is a conflict', async () => {
+    await migrateDatabase();
+    const { company, inviteeEmail, invitationId } = await companyWithInvite();
+    const invitee = await signIn(inviteeEmail);
+    const accepted = await authed(
+      invitee,
+      'POST',
+      `/invites/${invitationId}/accept`,
+    );
+    expect(accepted.status).toBe(200);
+
+    const [original] = await db
+      .select()
+      .from(invitation)
+      .where(eq(invitation.id, invitationId));
+    if (!original) {
+      throw new Error('invitation missing');
+    }
+    const duplicateId = `invitation_${crypto.randomUUID()}`;
+    await db
+      .insert(invitation)
+      .values({ ...original, id: duplicateId, status: 'pending' });
+
+    const again = await authed(
+      invitee,
+      'POST',
+      `/invites/${duplicateId}/accept`,
+    );
+    expect(again.status).toBe(409);
+    expect(await again.json()).toEqual({ error: 'conflict', reason: 'member' });
+    expect(await membershipCount(company.companyId, inviteeEmail)).toBe(1);
+
+    const mine = myInvitationSchema
+      .array()
+      .parse(await (await authed(invitee, 'GET', '/my-invites')).json());
+    expect(mine).toEqual([]);
+  });
+
+  test('concurrent accepts of one invitation create exactly one membership', async () => {
+    await migrateDatabase();
+    const { company, inviteeEmail, invitationId } = await companyWithInvite();
+    const invitee = await signIn(inviteeEmail);
+
+    const responses = await Promise.all([
+      authed(invitee, 'POST', `/invites/${invitationId}/accept`),
+      authed(invitee, 'POST', `/invites/${invitationId}/accept`),
+    ]);
+
+    const statuses = responses.map((response) => response.status).sort();
+    expect(statuses[0]).toBe(200);
+    expect([404, 409]).toContain(statuses[1]);
+    expect(await membershipCount(company.companyId, inviteeEmail)).toBe(1);
+  });
 });
+
+async function companyWithInvite() {
+  const tag = crypto.randomUUID().slice(0, 8);
+  const ownerCookie = await signIn(`owner-${tag}@new.test`);
+  const created = await authed(ownerCookie, 'POST', '/companies', {
+    name: `Company ${tag}`,
+    slug: `company-${tag}`,
+  });
+  expect(created.status).toBe(200);
+  const company = companyActorSchema.parse(await created.json());
+
+  setInviteDelivery(async () => {});
+  const inviteeEmail = `invitee-${tag}@new.test`;
+  const invited = await authed(ownerCookie, 'POST', '/invites', {
+    email: inviteeEmail,
+    role: 'member',
+  });
+  expect(invited.status).toBe(200);
+  const sent = invitationSchema.parse(await invited.json());
+  return { company, inviteeEmail, invitationId: sent.id };
+}
+
+async function membershipCount(
+  companyId: string,
+  email: string,
+): Promise<number> {
+  const rows = await db
+    .select({ id: memberships.id })
+    .from(memberships)
+    .innerJoin(users, eq(users.id, memberships.userId))
+    .where(and(eq(memberships.companyId, companyId), eq(users.email, email)));
+  return rows.length;
+}

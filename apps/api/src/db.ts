@@ -17,3 +17,13 @@ const queryClient = postgres(databaseUrl());
 export const db = drizzle(queryClient, {
   schema: { ...schema, ...authSchema, ...ladderSchema },
 });
+
+export function isUniqueViolation(error: unknown): boolean {
+  if (error instanceof postgres.PostgresError) {
+    return error.code === '23505';
+  }
+  if (error instanceof Error) {
+    return isUniqueViolation(error.cause);
+  }
+  return false;
+}
