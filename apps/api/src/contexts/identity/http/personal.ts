@@ -1,10 +1,13 @@
-import { personalEmailBodySchema } from '@reviews/contracts';
+import {
+  personalCodeBodySchema,
+  personalEmailBodySchema,
+} from '@reviews/contracts';
 import { Hono } from 'hono';
 import {
   linkPersonalEmail,
   personalActorFor,
-  requestPersonalLink,
-  verifyPersonalLink,
+  requestPersonalCode,
+  verifyPersonalCode,
 } from '../application/personal-actor';
 import { respond } from './respond';
 import { companyActor, personalLogin } from './session';
@@ -24,20 +27,21 @@ personalRoutes.post('/sign-in/personal', async (c) => {
   if (!body.success) {
     return c.json({ error: 'invalid' }, 400);
   }
-  await requestPersonalLink(body.data.email);
+  await requestPersonalCode(body.data.email);
   return c.json({ ok: true });
 });
 
-personalRoutes.get('/sign-in/personal/verify', async (c) => {
-  const token = c.req.query('token');
-  if (!token) {
+personalRoutes.post('/sign-in/personal/verify', async (c) => {
+  const body = personalCodeBodySchema.safeParse(await c.req.json());
+  if (!body.success) {
     return c.json({ error: 'invalid' }, 400);
   }
-  const result = await verifyPersonalLink(token);
+  const result = await verifyPersonalCode(body.data.email, body.data.code);
   if (!result.ok) {
     return respond(c, result);
   }
-  c.header('set-cookie', result.value.cookie);
+  c.header('set-cookie', result.value.session.setCookie);
+  c.header('set-auth-token', result.value.session.bearerToken);
   return c.json({ userId: result.value.userId });
 });
 

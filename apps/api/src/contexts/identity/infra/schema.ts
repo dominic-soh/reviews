@@ -1,4 +1,10 @@
-import { pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import {
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
   id: text('id').primaryKey(),
@@ -47,11 +53,12 @@ export const agentTokens = pgTable('agent_tokens', {
 });
 
 export const personalSignIns = pgTable('personal_sign_ins', {
-  token: text('token').primaryKey(),
   userId: text('user_id')
-    .notNull()
+    .primaryKey()
     .references(() => users.id),
+  codeHash: text('code_hash').notNull(),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  attempts: integer('attempts').notNull().default(0),
 });
 
 export const reportingLines = pgTable('reporting_lines', {

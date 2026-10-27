@@ -85,3 +85,8 @@ export type PersonalActor = z.infer<typeof personalActorSchema>;
 export const personalEmailBodySchema = z.object({
   email: z.email(),
 });
+
+export const personalCodeBodySchema = z.object({
+  email: z.email(),
+  code: z.string().regex(/^\d{6}$/),
+});
