@@ -22,7 +22,7 @@ import { InvitePeople } from './InvitePeople';
 import { JoinInvite } from './JoinInvite';
 import { MyPlace } from './MyPlace';
 import { Onboarding } from './Onboarding';
-import { SignIn, type SignInStep } from './SignIn';
+import { SignIn, type SignInStep, signInCodeLength } from './SignIn';
 
 function Loading() {
   return (
@@ -212,6 +212,9 @@ export function CompanyScreen() {
           }}
           onSubmitCode={() => {
             'background only';
+            if (code.length !== signInCodeLength) {
+              return;
+            }
             void submitSignInCode(email, code).then(async (signedIn) => {
               if (!signedIn) {
                 setNotice('That code did not work.');

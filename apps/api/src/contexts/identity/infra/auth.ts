@@ -44,6 +44,7 @@ export const auth = betterAuth({
   plugins: [
     bearer(),
     emailOTP({
+      otpLength: 6,
       storeOTP: 'hashed',
       async sendVerificationOTP({ email, otp, type }) {
         switch (type) {

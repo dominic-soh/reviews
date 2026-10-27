@@ -1,11 +1,17 @@
-// lynx-ui Input calls setValue on mount. The test renderer throws from
-// NodesRef.invoke, which fails the file even when the assertion passed.
+// lynx-ui Input calls setValue on mount, and KeyboardAwareRoot calls
+// setNativeProps. The test renderer throws from those NodesRef calls, which
+// fails the file even when the assertion passed.
 type InvokeCall = {
   success?: (result: unknown) => void;
 };
 
+type QueryChain = {
+  exec: () => void;
+};
+
 type QueryRef = {
-  invoke: (call: InvokeCall) => { exec: () => void };
+  invoke: (call: InvokeCall) => QueryChain;
+  setNativeProps: (props: Record<string, unknown>) => QueryChain;
 };
 
 type SelectorQuery = {
@@ -24,31 +30,52 @@ type TestingEnv = {
   mainThread: { globalThis: LynxGlobal };
 };
 
-function tolerateInvoke(ref: QueryRef): QueryRef {
-  const invoke = ref.invoke.bind(ref);
-  ref.invoke = (call) => {
+function emptyChain(): QueryChain {
+  return {
+    exec() {
+      return undefined;
+    },
+  };
+}
+
+function tolerateMethod(
+  ref: QueryRef,
+  method: 'invoke' | 'setNativeProps',
+): void {
+  const original = ref[method].bind(ref);
+  if (method === 'invoke') {
+    ref.invoke = (call) => {
+      try {
+        return original(call);
+      } catch {
+        call.success?.({});
+        return emptyChain();
+      }
+    };
+    return;
+  }
+  ref.setNativeProps = (props) => {
     try {
-      return invoke(call);
+      return original(props);
     } catch {
-      call.success?.({});
-      return {
-        exec() {
-          return undefined;
-        },
-      };
+      return emptyChain();
     }
   };
+}
+
+function tolerateInvoke(ref: QueryRef): QueryRef {
+  tolerateMethod(ref, 'invoke');
+  tolerateMethod(ref, 'setNativeProps');
   return ref;
 }
 
 const missingRef: QueryRef = {
   invoke(call) {
     call.success?.({});
-    return {
-      exec() {
-        return undefined;
-      },
-    };
+    return emptyChain();
+  },
+  setNativeProps() {
+    return emptyChain();
   },
 };
 

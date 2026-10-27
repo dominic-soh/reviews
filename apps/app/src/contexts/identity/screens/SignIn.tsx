@@ -1,4 +1,6 @@
 import {
+  InputOTP,
+  InputOTPSlot,
   KeyboardAwareResponder,
   KeyboardAwareRoot,
   KeyboardAwareTrigger,
@@ -7,9 +9,28 @@ import {
 import { Button } from '../../../ui/Button';
 import { EmailField } from '../../../ui/EmailField';
 import { PrimaryButton } from '../../../ui/PrimaryButton';
-import { TextField } from '../../../ui/TextField';
+
+export const signInCodeLength = 6;
 
 export type SignInStep = 'email' | 'link' | 'code';
+
+function codeSlotClass(index: number): string {
+  const classes = [
+    'flex',
+    'flex-1',
+    'flex-row',
+    'h-12',
+    'items-center',
+    'justify-center',
+    'border',
+    'border-gray-300',
+    'rounded-xl',
+  ];
+  if (index < signInCodeLength - 1) {
+    classes.push('mr-2');
+  }
+  return classes.join(' ');
+}
 
 export function SignIn(props: {
   email: string;
@@ -53,19 +74,32 @@ export function SignIn(props: {
             ) : null}
             {props.step === 'code' ? (
               <view className="bg-white rounded-2xl p-5 mb-8">
-                <text className="text-lg font-semibold">Enter your code</text>
+                <text className="text-lg font-semibold">
+                  Enter the 6-digit code
+                </text>
                 <text className="text-base mt-2">
                   We sent a sign-in code to {props.email}.
                 </text>
+                <InputOTP
+                  className="flex flex-row mt-3"
+                  inputType="numeric"
+                  length={signInCodeLength}
+                  value={props.code}
+                  onChange={props.onCodeChange}
+                >
+                  {Array.from({ length: signInCodeLength }, (_, index) => (
+                    <InputOTPSlot
+                      key={index}
+                      className={codeSlotClass(index)}
+                      index={index}
+                    />
+                  ))}
+                </InputOTP>
                 <view className="mt-3">
-                  <TextField
-                    value={props.code}
-                    placeholder="Sign-in code"
-                    onChange={props.onCodeChange}
-                  />
-                </view>
-                <view className="mt-3">
-                  <PrimaryButton onPress={props.onSubmitCode}>
+                  <PrimaryButton
+                    disabled={props.code.length !== signInCodeLength}
+                    onPress={props.onSubmitCode}
+                  >
                     Sign in
                   </PrimaryButton>
                 </view>
