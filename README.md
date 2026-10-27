@@ -32,6 +32,7 @@ With `NODE_ENV=production`, the API refuses to start unless these are set:
 - `BETTER_AUTH_SECRET`: at least 32 characters.
 - `BETTER_AUTH_URL`: the API's own origin.
 - `ALLOWED_ORIGINS`: a comma-separated list of exact `https://` origins. CORS and better-auth `trustedOrigins` allow only these.
+- `APP_URL`: an exact `https://` origin for the app. Invite emails link here with the invited email in the `email` query param.
 
 ## Roadmap
 

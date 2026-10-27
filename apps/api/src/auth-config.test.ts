@@ -10,6 +10,7 @@ const productionEnv = {
   BETTER_AUTH_SECRET: 'a'.repeat(32),
   BETTER_AUTH_URL: 'https://api.reviews.example',
   ALLOWED_ORIGINS: 'https://reviews.example',
+  APP_URL: 'https://app.reviews.example',
 } as const;
 
 describe('parseAuthConfig in production', () => {
@@ -53,6 +54,29 @@ describe('parseAuthConfig in production', () => {
     expect(isOriginAllowed(config, 'https://evil.example')).toBe(false);
     expect(trustedOrigins(config)).toEqual(['https://reviews.example']);
   });
+
+  test('throws when APP_URL is missing', () => {
+    const env = { ...productionEnv, APP_URL: undefined };
+    expect(() => parseAuthConfig(env, [])).toThrow('APP_URL');
+  });
+
+  test('throws when APP_URL is http', () => {
+    const env = { ...productionEnv, APP_URL: 'http://app.reviews.example' };
+    expect(() => parseAuthConfig(env, [])).toThrow('APP_URL');
+  });
+
+  test('throws when APP_URL has a path', () => {
+    const env = {
+      ...productionEnv,
+      APP_URL: 'https://app.reviews.example/invite',
+    };
+    expect(() => parseAuthConfig(env, [])).toThrow('APP_URL');
+  });
+
+  test('a valid config exposes the configured APP_URL', () => {
+    const config = parseAuthConfig(productionEnv, []);
+    expect(config.appURL).toBe('https://app.reviews.example');
+  });
 });
 
 describe('parseAuthConfig in development', () => {
@@ -78,5 +102,25 @@ describe('parseAuthConfig in development', () => {
   test('falls back to the dev secret when BETTER_AUTH_SECRET is unset', () => {
     const config = parseAuthConfig(developmentEnv, lanHosts);
     expect(config.secret).toBe('dev-secret-dev-secret-dev-secret');
+  });
+
+  test('defaults APP_URL to the web preview on this machine', () => {
+    const config = parseAuthConfig(developmentEnv, lanHosts);
+    expect(config.appURL).toBe(
+      'http://192.168.1.42:3000/__web_preview?casename=main.web.bundle',
+    );
+  });
+
+  test('falls back to 127.0.0.1 for APP_URL when no LAN host is found', () => {
+    const config = parseAuthConfig(developmentEnv, []);
+    expect(config.appURL).toBe(
+      'http://127.0.0.1:3000/__web_preview?casename=main.web.bundle',
+    );
+  });
+
+  test('APP_URL env overrides the development default', () => {
+    const env = { ...developmentEnv, APP_URL: 'http://localhost:4000/custom' };
+    const config = parseAuthConfig(env, lanHosts);
+    expect(config.appURL).toBe('http://localhost:4000/custom');
   });
 });

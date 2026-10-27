@@ -6,16 +6,19 @@ export type AuthConfig =
       secret: string;
       baseURL: string;
       allowedHosts: string[];
+      appURL: string;
     }
   | {
       mode: 'production';
       secret: string;
       baseURL: string;
       allowedOrigins: string[];
+      appURL: string;
     };
 
 const devSecret = 'dev-secret-dev-secret-dev-secret';
 const minProductionSecretLength = 32;
+const devAppPort = 3000;
 
 function discoverLanHosts(): string[] {
   const hosts: string[] = [];
@@ -82,7 +85,18 @@ function parseProductionConfig(env: NodeJS.ProcessEnv): AuthConfig {
       `ALLOWED_ORIGINS must list only exact https origins, got "${insecure}".`,
     );
   }
-  return { mode: 'production', secret, baseURL, allowedOrigins };
+  const appURL = env.APP_URL;
+  if (!appURL) {
+    throw new Error('APP_URL must be set in production.');
+  }
+  if (!isExactHttpsOrigin(appURL)) {
+    throw new Error(`APP_URL must be an exact https origin, got "${appURL}".`);
+  }
+  return { mode: 'production', secret, baseURL, allowedOrigins, appURL };
+}
+
+function defaultDevAppURL(host: string): string {
+  return `http://${host}:${devAppPort}/__web_preview?casename=main.web.bundle`;
 }
 
 function parseDevelopmentConfig(
@@ -94,7 +108,8 @@ function parseDevelopmentConfig(
   const port = env.PORT ?? '3001';
   const host = lanHosts[0] ?? '127.0.0.1';
   const baseURL = env.BETTER_AUTH_URL ?? `http://${host}:${port}`;
-  return { mode: 'development', secret, baseURL, allowedHosts };
+  const appURL = env.APP_URL ?? defaultDevAppURL(host);
+  return { mode: 'development', secret, baseURL, allowedHosts, appURL };
 }
 
 export function parseAuthConfig(

@@ -1,4 +1,4 @@
-import { useState } from '@lynx-js/react';
+import { useEffect, useState } from '@lynx-js/react';
 import type { InvitableRole } from '@reviews/contracts';
 import { useQueryClient } from '@tanstack/react-query';
 import { PrimaryButton } from '../../../ui/PrimaryButton';
@@ -6,6 +6,7 @@ import {
   acceptInvite,
   createCompany,
   inviteMember,
+  readInvitedEmail,
   requestMagicLink,
   requestSignInCode,
   setManager,
@@ -67,6 +68,13 @@ export function CompanyScreen() {
   const [step, setStep] = useState<SignInStep>('email');
   const [notice, setNotice] = useState('');
   const [setupInvite, setSetupInvite] = useState(false);
+
+  useEffect(() => {
+    const invitedEmail = readInvitedEmail();
+    if (invitedEmail) {
+      setEmail(invitedEmail);
+    }
+  }, []);
 
   function handleSignOut(): void {
     'background only';

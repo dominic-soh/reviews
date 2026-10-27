@@ -9,6 +9,7 @@ import {
   member,
   organization,
   session,
+  user,
 } from '../infra/auth-schema';
 import { sendInvite } from '../infra/mail';
 import { companies, memberships, reportingLines, users } from '../infra/schema';
@@ -179,8 +180,14 @@ export async function inviteMember(
     inviterId: authUserId,
   });
 
+  const inviterRows = await db
+    .select({ name: user.name })
+    .from(user)
+    .where(eq(user.id, authUserId));
+  const inviterName = inviterRows[0]?.name || undefined;
+
   try {
-    await sendInvite(input.email, company.name, id);
+    await sendInvite(input.email, company.name, inviterName);
   } catch (error) {
     await db.delete(invitation).where(eq(invitation.id, id));
     throw error;

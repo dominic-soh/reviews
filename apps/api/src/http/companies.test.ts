@@ -6,6 +6,7 @@ import {
   myInvitationSchema,
 } from '@reviews/contracts';
 import { and, eq } from 'drizzle-orm';
+import { authConfig } from '../auth-config';
 import { invitation } from '../contexts/identity/infra/auth-schema';
 import {
   setInviteDelivery,
@@ -77,9 +78,14 @@ describe('companies', () => {
     expect(owner.role).toBe('owner');
     expect(owner.companyName).toBe('Northwind');
 
-    const sent: { email: string; companyName: string }[] = [];
-    setInviteDelivery(async (email, companyName) => {
-      sent.push({ email, companyName });
+    const sent: {
+      email: string;
+      companyName: string;
+      link: string;
+      inviterName?: string;
+    }[] = [];
+    setInviteDelivery(async (email, companyName, link, inviterName) => {
+      sent.push({ email, companyName, link, inviterName });
     });
 
     const actor = await authed(grace, 'GET', '/company-actor');
@@ -91,7 +97,17 @@ describe('companies', () => {
     });
     expect(invited.status).toBe(200);
     const invitation = invitationSchema.parse(await invited.json());
-    expect(sent).toEqual([{ email: 'bea@new.test', companyName: 'Northwind' }]);
+    expect(sent).toHaveLength(1);
+    const [delivered] = sent;
+    expect(delivered?.email).toBe('bea@new.test');
+    expect(delivered?.companyName).toBe('Northwind');
+    expect(delivered?.inviterName).toBeUndefined();
+    expect(delivered?.link.startsWith(authConfig.appURL)).toBe(true);
+    expect(delivered?.link).toContain(
+      `email=${encodeURIComponent('bea@new.test')}`,
+    );
+    expect(delivered?.link).not.toContain(invitation.id);
+    expect(delivered?.link).not.toContain('token=');
 
     const pending = invitationSchema
       .array()
@@ -184,6 +200,25 @@ describe('companies', () => {
       { role: 'member' },
     );
     expect(demoteOwner.status).toBe(403);
+  });
+
+  test('an invite includes the inviter name when the inviter has one', async () => {
+    await migrateDatabase();
+    await seedDemo();
+
+    const sent: { inviterName?: string }[] = [];
+    setInviteDelivery(async (_email, _companyName, _link, inviterName) => {
+      sent.push({ inviterName });
+    });
+
+    const ada = await signIn('ada@demo.test');
+    const invited = await authed(ada, 'POST', '/invites', {
+      email: `invitee-${crypto.randomUUID().slice(0, 8)}@new.test`,
+      role: 'member',
+    });
+    expect(invited.status).toBe(200);
+    expect(sent).toHaveLength(1);
+    expect(sent[0]?.inviterName).toBe('Ada Demo');
   });
 
   test('concurrent creates with the same slug end in one company and conflicts', async () => {
