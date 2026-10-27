@@ -41,6 +41,16 @@ export const auth = betterAuth({
   baseURL: hostedApiOrigin(),
   trustedOrigins: trustedPreviewOrigins(),
   database: drizzleAdapter(db, { provider: 'pg', schema: authSchema }),
+  session: {
+    additionalFields: {
+      loginKind: {
+        type: 'string',
+        defaultValue: 'company',
+        input: false,
+        fieldName: 'loginKind',
+      },
+    },
+  },
   plugins: [
     bearer(),
     emailOTP({
