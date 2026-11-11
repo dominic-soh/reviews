@@ -25,6 +25,29 @@ Ada lands on the Demo company as the owner. The directory offers an invite. The 
 
 Any other address can request a link the same way. After it is opened, that person has no company yet, so the preview shows "Create your company" instead of the directory.
 
+## Roadmap
+
+Status as of November 2026.
+
+**Done**
+
+- **Foundation.** One command starts the local stack. A CI script runs checks, typecheck, and tests. An MCP endpoint answers `whoami` for a bearer token.
+- **Companies and people.** Companies, invites, roles, reporting lines, and row-level security on tenant data. A personal email can sign in as the same user.
+- **Auth hardening.** Production refuses to start with weak or missing settings. Sign-out clears the session. Personal sign-in uses a one-time code. Creating a company and accepting an invite are safe under concurrent requests.
+- **Ladders, part one.** Draft a ladder and publish a version. Published versions cannot be edited.
+
+**In progress**
+
+- **Ladders, part two.** Import a ladder from a spreadsheet, edit it as a matrix, read version history, and write criteria in markdown with a preview.
+
+**Planned**
+
+- **Evaluation.** Review cycles, self, peer, and manager reviews, and rules for who can read each answer. Managers see their reports and the peer reviews still missing.
+- **Outcomes.** Save a compensation decision that stays hidden until the reveal.
+- **Agent access.** Issue and revoke tokens for employees and managers, with an audit log for every agent write.
+- **Hosting.** A hosted MVP, then native iOS and Android hosts.
+- **Portfolio.** Keep a snapshot of a revealed review, and share it with a grant that can be revoked.
+
 ## Commits
 
 Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/). `bun install` turns on a hook that rejects any other message.
