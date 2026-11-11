@@ -12,9 +12,13 @@
     "format": "biome format --write .",
     "test": "bun run --filter @reviews/app test && bun run --filter @reviews/api test",
     "typecheck": "bun run --filter '*' typecheck",
-    "ci": "bun scripts/ci.ts"
+    "ci": "bun scripts/ci.ts",
+    "prepare": "husky"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.11"
+    "@biomejs/biome": "2.5.11",
+    "@commitlint/cli": "21.2.4",
+    "@commitlint/config-conventional": "21.2.4",
+    "husky": "9.1.7"
   }
 }

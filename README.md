@@ -24,3 +24,14 @@ Sign-in is a magic link. Nothing in this flow has a password. `bun dev` seeds on
 Ada lands on the Demo company as the owner. The directory offers an invite. The org chart is empty apart from Ada.
 
 Any other address can request a link the same way. After it is opened, that person has no company yet, so the preview shows "Create your company" instead of the directory.
+
+## Commits
+
+Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/). `bun install` turns on a hook that rejects any other message.
+
+```
+feat: add a sign-out button
+fix(auth): refuse a personal session on company routes
+```
+
+The type is `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, or `revert`. A scope in parentheses is optional.
