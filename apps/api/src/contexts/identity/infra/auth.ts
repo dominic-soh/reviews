@@ -1,17 +1,16 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { bearer, emailOTP, magicLink, organization } from 'better-auth/plugins';
-import { db } from '../../../db';
 import {
-  hostedApiOrigin,
-  previewOriginAllowed,
-  trustedPreviewOrigins,
-} from '../../../preview-origin';
+  authConfig,
+  isOriginAllowed,
+  trustedOrigins,
+} from '../../../auth-config';
+import { db } from '../../../db';
 import { authSchema } from './auth-schema';
 import { sendMagicLink, sendSignInCode } from './mail';
 
-export const authSecret =
-  process.env.BETTER_AUTH_SECRET ?? 'dev-secret-dev-secret-dev-secret';
+export const authSecret = authConfig.secret;
 
 function mailedSignInLink(verifyURL: string, token: string): string {
   let callback: string | null;
@@ -29,7 +28,7 @@ function mailedSignInLink(verifyURL: string, token: string): string {
   } catch {
     return verifyURL;
   }
-  if (!previewOriginAllowed(page.origin)) {
+  if (!isOriginAllowed(authConfig, page.origin)) {
     return verifyURL;
   }
   page.searchParams.set('sign-in', token);
@@ -38,9 +37,19 @@ function mailedSignInLink(verifyURL: string, token: string): string {
 
 export const auth = betterAuth({
   secret: authSecret,
-  baseURL: hostedApiOrigin(),
-  trustedOrigins: trustedPreviewOrigins(),
+  baseURL: authConfig.baseURL,
+  trustedOrigins: trustedOrigins(authConfig),
   database: drizzleAdapter(db, { provider: 'pg', schema: authSchema }),
+  session: {
+    additionalFields: {
+      loginKind: {
+        type: 'string',
+        defaultValue: 'company',
+        input: false,
+        fieldName: 'loginKind',
+      },
+    },
+  },
   plugins: [
     bearer(),
     emailOTP({

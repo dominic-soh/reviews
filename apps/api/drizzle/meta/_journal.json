@@ -50,6 +50,13 @@
       "when": 1793004300000,
       "tag": "0006_ladders",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793090586172,
+      "tag": "0007_personal_sign_in_codes",
+      "breakpoints": true
     }
   ]
 }

@@ -1,4 +1,5 @@
 import { useState } from '@lynx-js/react';
+import { Button } from '../../../ui/Button';
 import { PrimaryButton } from '../../../ui/PrimaryButton';
 import { TextField } from '../../../ui/TextField';
 import type { CreateCompanyResult } from '../api/company';
@@ -21,6 +22,7 @@ function createError(result: CreateCompanyResult): string | null {
 
 export function Onboarding(props: {
   onCreate: (name: string, slug: string) => Promise<CreateCompanyResult>;
+  onSignOut: () => void;
 }) {
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -58,6 +60,11 @@ export function Onboarding(props: {
         >
           Create company
         </PrimaryButton>
+      </view>
+      <view className="mt-4 items-center">
+        <Button onClick={props.onSignOut}>
+          <text className="text-sm text-gray-500">Sign out</text>
+        </Button>
       </view>
     </view>
   );

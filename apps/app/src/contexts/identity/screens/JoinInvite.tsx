@@ -1,5 +1,6 @@
 import { useEffect, useState } from '@lynx-js/react';
 import type { MyInvitation } from '@reviews/contracts';
+import { Button } from '../../../ui/Button';
 import { PrimaryButton } from '../../../ui/PrimaryButton';
 
 type JoinPhase = 'idle' | 'joining' | 'failed';
@@ -7,6 +8,7 @@ type JoinPhase = 'idle' | 'joining' | 'failed';
 export function JoinInvite(props: {
   invites: readonly MyInvitation[];
   onAccept: (invitationId: string) => Promise<boolean>;
+  onSignOut: () => void;
 }) {
   const { invites, onAccept } = props;
   const only = invites.length === 1 ? invites[0] : null;
@@ -52,6 +54,11 @@ export function JoinInvite(props: {
             </PrimaryButton>
           </view>
         ) : null}
+        <view className="mt-4">
+          <Button onClick={props.onSignOut}>
+            <text className="text-sm text-gray-500">Sign out</text>
+          </Button>
+        </view>
       </view>
     );
   }
@@ -74,6 +81,11 @@ export function JoinInvite(props: {
           </PrimaryButton>
         </view>
       ))}
+      <view className="mt-4">
+        <Button onClick={props.onSignOut}>
+          <text className="text-sm text-gray-500">Sign out</text>
+        </Button>
+      </view>
     </view>
   );
 }

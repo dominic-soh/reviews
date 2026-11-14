@@ -1,15 +1,17 @@
 import { useEffect, useState } from '@lynx-js/react';
 import type { InvitableRole } from '@reviews/contracts';
 import { useQueryClient } from '@tanstack/react-query';
-import { useSession } from '../../../app/session';
+import { PrimaryButton } from '../../../ui/PrimaryButton';
 import {
   acceptInvite,
   createCompany,
   inviteMember,
+  readInvitedEmail,
   requestMagicLink,
   requestSignInCode,
   setManager,
   setMembershipRole,
+  signOut,
   submitSignInCode,
   useCompanySession,
   useMembers,
@@ -32,6 +34,25 @@ function Loading() {
   );
 }
 
+function ErrorNotice(props: { message: string; onRetry: () => void }) {
+  return (
+    <view className="p-6 min-h-screen bg-gray-100 text-gray-900">
+      <text className="text-lg">Reviews</text>
+      <text className="text-base mt-4">{props.message}</text>
+      <view className="mt-4">
+        <PrimaryButton
+          onPress={() => {
+            'background only';
+            props.onRetry();
+          }}
+        >
+          Try again
+        </PrimaryButton>
+      </view>
+    </view>
+  );
+}
+
 export function CompanyScreen() {
   const session = useCompanySession();
   const state = session.data;
@@ -42,7 +63,6 @@ export function CompanyScreen() {
   const pendingInvites = usePendingInvites(canInvite);
   const myInvites = useMyInvites(isOnboarding);
   const queryClient = useQueryClient();
-  const setCompanyName = useSession((stored) => stored.setCompanyName);
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [step, setStep] = useState<SignInStep>('email');
@@ -50,12 +70,23 @@ export function CompanyScreen() {
   const [setupInvite, setSetupInvite] = useState(false);
 
   useEffect(() => {
-    if (state?.kind !== 'company') {
-      setCompanyName(null);
-      return;
+    const invitedEmail = readInvitedEmail();
+    if (invitedEmail) {
+      setEmail(invitedEmail);
     }
-    setCompanyName(state.actor.companyName);
-  }, [state, setCompanyName]);
+  }, []);
+
+  function handleSignOut(): void {
+    'background only';
+    void signOut().then(async () => {
+      setEmail('');
+      setCode('');
+      setStep('email');
+      setNotice('');
+      setSetupInvite(false);
+      await queryClient.resetQueries();
+    });
+  }
 
   async function submitInvites(
     emails: string[],
@@ -88,14 +119,26 @@ export function CompanyScreen() {
     );
   }
 
-  if (isCompany && !members.isFetched) {
-    return <Loading />;
+  if (isCompany) {
+    if (members.isPending) {
+      return <Loading />;
+    }
+    if (members.isError) {
+      return (
+        <ErrorNotice
+          message="Could not load your team."
+          onRetry={() => {
+            void members.refetch();
+          }}
+        />
+      );
+    }
   }
 
   switch (state.kind) {
     case 'company': {
+      const people = members.data ?? [];
       if (state.actor.role === 'member') {
-        const people = members.data ?? [];
         const me = people.find(
           (person) => person.membershipId === state.actor.membershipId,
         );
@@ -114,6 +157,7 @@ export function CompanyScreen() {
             companyName={state.actor.companyName}
             member={me}
             managerName={manager?.name ?? null}
+            onSignOut={handleSignOut}
           />
         );
       }
@@ -124,7 +168,7 @@ export function CompanyScreen() {
             membershipId: state.actor.membershipId,
             role: state.actor.role,
           }}
-          members={members.data ?? []}
+          members={people}
           pendingInvites={pendingInvites.data ?? []}
           onInvite={submitInvites}
           onSetManager={async (membershipId, managerMembershipId) => {
@@ -139,17 +183,29 @@ export function CompanyScreen() {
             await queryClient.invalidateQueries({ queryKey: ['members'] });
             return ok;
           }}
+          onSignOut={handleSignOut}
         />
       );
     }
-    case 'onboarding':
-      if (!myInvites.isFetched) {
+    case 'onboarding': {
+      if (myInvites.isPending) {
         return <Loading />;
       }
-      if (myInvites.data && myInvites.data.length > 0) {
+      if (myInvites.isError) {
+        return (
+          <ErrorNotice
+            message="Could not load your invites."
+            onRetry={() => {
+              void myInvites.refetch();
+            }}
+          />
+        );
+      }
+      const invites = myInvites.data ?? [];
+      if (invites.length > 0) {
         return (
           <JoinInvite
-            invites={myInvites.data}
+            invites={invites}
             onAccept={async (invitationId) => {
               'background only';
               const ok = await acceptInvite(invitationId);
@@ -159,6 +215,7 @@ export function CompanyScreen() {
               await queryClient.invalidateQueries({ queryKey: ['my-invites'] });
               return ok;
             }}
+            onSignOut={handleSignOut}
           />
         );
       }
@@ -176,8 +233,10 @@ export function CompanyScreen() {
             setSetupInvite(true);
             return result;
           }}
+          onSignOut={handleSignOut}
         />
       );
+    }
     case 'signed-out':
       return (
         <SignIn

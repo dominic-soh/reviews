@@ -14,7 +14,7 @@ const backgroundOnly = fileURLToPath(
 
 const compilerOn = process.env.REACT_COMPILER !== '0';
 
-const signInPropsScript = `(function(){try{var params=new URLSearchParams(location.search);var token=params.get("sign-in");if(!token)return;var key="lynx-web-core-global-props";var props={};try{props=JSON.parse(localStorage.getItem(key)||"{}")||{}}catch(e){props={}}var items=props.queryItems||{};items["sign-in"]=token;props.queryItems=items;localStorage.setItem(key,JSON.stringify(props));}catch(e){}})();`;
+const signInPropsScript = `(function(){try{var params=new URLSearchParams(location.search);var names=["sign-in","email"];var key="lynx-web-core-global-props";var props={};try{props=JSON.parse(localStorage.getItem(key)||"{}")||{}}catch(e){props={}}var items=props.queryItems||{};var changed=false;for(var i=0;i<names.length;i++){var value=params.get(names[i]);if(value){items[names[i]]=value;changed=true;}}if(!changed)return;props.queryItems=items;localStorage.setItem(key,JSON.stringify(props));}catch(e){}})();`;
 
 function isPreviewDocument(url: string | undefined): boolean {
   const path = (url ?? '').split('?')[0];

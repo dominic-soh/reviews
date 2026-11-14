@@ -14,7 +14,12 @@ import {
   myInvitationSchema,
 } from '@reviews/contracts';
 import { useQuery } from '@tanstack/react-query';
-import { authHeaders, prepareSession, rememberSession } from './session-carry';
+import {
+  authHeaders,
+  forgetSession,
+  prepareSession,
+  rememberSession,
+} from './session-carry';
 
 export type { InvitableRole, Invitation, MyInvitation };
 
@@ -31,6 +36,15 @@ export type InviteOutcome =
   | 'failed';
 
 export type CreateCompanyResult = 'created' | 'taken' | 'failed';
+
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super(`Request failed with status ${status}`);
+    this.status = status;
+  }
+}
 
 type LynxPage = {
   originUrl?: string;
@@ -71,9 +85,9 @@ function browserHref(): string | undefined {
   );
 }
 
-function signInFromHref(href: string): string | undefined {
+function paramFromHref(href: string, name: string): string | undefined {
   try {
-    return new URL(href).searchParams.get('sign-in') ?? undefined;
+    return new URL(href).searchParams.get(name) ?? undefined;
   } catch {
     return undefined;
   }
@@ -112,8 +126,8 @@ function pageURL(): string | undefined {
   return bundleURL();
 }
 
-function readSignInToken(): string | undefined {
-  const fromProps = lynxPage()?.queryItems?.['sign-in'];
+function readQueryParam(name: string): string | undefined {
+  const fromProps = lynxPage()?.queryItems?.[name];
   if (fromProps) {
     return fromProps;
   }
@@ -122,18 +136,24 @@ function readSignInToken(): string | undefined {
     if (!href) {
       continue;
     }
-    const token = signInFromHref(href);
-    if (token) {
-      return token;
+    const value = paramFromHref(href, name);
+    if (value) {
+      return value;
     }
   }
   return undefined;
 }
 
+export function readInvitedEmail(): string | undefined {
+  return readQueryParam('email');
+}
+
 async function authedFetch(url: string, init?: RequestInit): Promise<Response> {
   await prepareSession();
   const headers = new Headers(init?.headers);
-  for (const [key, value] of Object.entries(authHeaders())) {
+  const tokenHeaders = authHeaders();
+  const hadToken = Object.keys(tokenHeaders).length > 0;
+  for (const [key, value] of Object.entries(tokenHeaders)) {
     if (!headers.has(key)) {
       headers.set(key, value);
     }
@@ -144,6 +164,9 @@ async function authedFetch(url: string, init?: RequestInit): Promise<Response> {
     credentials: 'include',
   });
   rememberSession(response);
+  if (hadToken && response.status === 401) {
+    forgetSession();
+  }
   return response;
 }
 
@@ -154,7 +177,7 @@ async function consumeSignInLink(): Promise<void> {
     return;
   }
   signInConsumed = true;
-  const token = readSignInToken();
+  const token = readQueryParam('sign-in');
   if (!token) {
     return;
   }
@@ -197,16 +220,22 @@ export function useCompanySession() {
   });
 }
 
-async function loadMembers(): Promise<Member[]> {
+export async function signOut(): Promise<void> {
   try {
-    const response = await authedFetch(`${__API_BASE__}/members`);
-    if (!response.ok) {
-      return [];
-    }
-    return memberSchema.array().parse(await response.json());
+    await authedFetch(`${__API_BASE__}/api/auth/sign-out`, { method: 'POST' });
   } catch {
-    return [];
+    return;
+  } finally {
+    forgetSession();
   }
+}
+
+async function loadMembers(): Promise<Member[]> {
+  const response = await authedFetch(`${__API_BASE__}/members`);
+  if (!response.ok) {
+    throw new ApiError(response.status);
+  }
+  return memberSchema.array().parse(await response.json());
 }
 
 export function useMembers(enabled: boolean) {
@@ -219,15 +248,11 @@ export function useMembers(enabled: boolean) {
 }
 
 async function loadPendingInvites(): Promise<Invitation[]> {
-  try {
-    const response = await authedFetch(`${__API_BASE__}/invites`);
-    if (!response.ok) {
-      return [];
-    }
-    return invitationSchema.array().parse(await response.json());
-  } catch {
-    return [];
+  const response = await authedFetch(`${__API_BASE__}/invites`);
+  if (!response.ok) {
+    throw new ApiError(response.status);
   }
+  return invitationSchema.array().parse(await response.json());
 }
 
 export function usePendingInvites(enabled: boolean) {
@@ -240,15 +265,11 @@ export function usePendingInvites(enabled: boolean) {
 }
 
 async function loadMyInvites(): Promise<MyInvitation[]> {
-  try {
-    const response = await authedFetch(`${__API_BASE__}/my-invites`);
-    if (!response.ok) {
-      return [];
-    }
-    return myInvitationSchema.array().parse(await response.json());
-  } catch {
-    return [];
+  const response = await authedFetch(`${__API_BASE__}/my-invites`);
+  if (!response.ok) {
+    throw new ApiError(response.status);
   }
+  return myInvitationSchema.array().parse(await response.json());
 }
 
 export function useMyInvites(enabled: boolean) {

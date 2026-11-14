@@ -1,15 +1,23 @@
-import { eq, or } from 'drizzle-orm';
+import { createHmac, randomInt } from 'node:crypto';
+import { and, eq, gt, gte, lt, lte, or, sql } from 'drizzle-orm';
 import { db } from '../../../db';
-import { hostedApiOrigin } from '../../../preview-origin';
 import type { CompanyActor } from '../domain/company-actor';
-import { session, user } from '../infra/auth-schema';
-import { sendMagicLink } from '../infra/mail';
+import { authSecret } from '../infra/auth';
+import { user } from '../infra/auth-schema';
+import { sendSignInCode } from '../infra/mail';
+import {
+  type IssuedSession,
+  issuePersonalSession,
+} from '../infra/personal-session';
 import { memberships, personalSignIns, users } from '../infra/schema';
-import { sessionCookie } from '../infra/session-cookie';
 import { type CommandResult, commandError } from './result';
 
 const quarterHour = 15 * 60 * 1000;
-const week = 7 * 24 * 60 * 60 * 1000;
+const maxAttempts = 5;
+
+function hashCode(code: string): string {
+  return createHmac('sha256', authSecret).update(code).digest('hex');
+}
 
 export async function linkPersonalEmail(
   actor: CompanyActor,
@@ -44,7 +52,7 @@ export async function linkPersonalEmail(
   return { ok: true, value: { email } };
 }
 
-export async function requestPersonalLink(email: string): Promise<void> {
+export async function requestPersonalCode(email: string): Promise<void> {
   const people = await db
     .select()
     .from(users)
@@ -53,37 +61,69 @@ export async function requestPersonalLink(email: string): Promise<void> {
   if (!person) {
     return;
   }
-  const token = crypto.randomUUID();
-  await db.insert(personalSignIns).values({
-    token,
-    userId: person.id,
+  const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
+  const pending = {
+    codeHash: hashCode(code),
     expiresAt: new Date(Date.now() + quarterHour),
-  });
-  const base = hostedApiOrigin();
-  await sendMagicLink(email, `${base}/sign-in/personal/verify?token=${token}`);
+    attempts: 0,
+  };
+  await db
+    .insert(personalSignIns)
+    .values({ userId: person.id, ...pending })
+    .onConflictDoUpdate({ target: personalSignIns.userId, set: pending });
+  await sendSignInCode(email, code);
 }
 
-export async function verifyPersonalLink(
-  token: string,
-): Promise<CommandResult<{ cookie: string; userId: string }>> {
-  const pendingRows = await db
-    .select()
-    .from(personalSignIns)
-    .where(eq(personalSignIns.token, token));
-  const pending = pendingRows[0];
-  if (!pending || pending.expiresAt.getTime() < Date.now()) {
-    return commandError('not-found');
+async function consumeCode(userId: string, code: string): Promise<boolean> {
+  const now = new Date();
+  const consumed = await db
+    .delete(personalSignIns)
+    .where(
+      and(
+        eq(personalSignIns.userId, userId),
+        eq(personalSignIns.codeHash, hashCode(code)),
+        gt(personalSignIns.expiresAt, now),
+        lt(personalSignIns.attempts, maxAttempts),
+      ),
+    )
+    .returning({ userId: personalSignIns.userId });
+  if (consumed.length > 0) {
+    return true;
   }
-  await db.delete(personalSignIns).where(eq(personalSignIns.token, token));
+  await db
+    .update(personalSignIns)
+    .set({ attempts: sql`${personalSignIns.attempts} + 1` })
+    .where(eq(personalSignIns.userId, userId));
+  await db
+    .delete(personalSignIns)
+    .where(
+      and(
+        eq(personalSignIns.userId, userId),
+        or(
+          gte(personalSignIns.attempts, maxAttempts),
+          lte(personalSignIns.expiresAt, now),
+        ),
+      ),
+    );
+  return false;
+}
 
+export async function verifyPersonalCode(
+  email: string,
+  code: string,
+): Promise<CommandResult<{ userId: string; session: IssuedSession }>> {
   const people = await db
     .select()
     .from(users)
-    .where(eq(users.id, pending.userId));
+    .where(eq(users.personalEmail, email));
   const person = people[0];
   if (!person) {
-    return commandError('not-found');
+    return commandError('invalid');
   }
+  if (!(await consumeCode(person.id, code))) {
+    return commandError('invalid');
+  }
+
   const accounts = await db
     .select()
     .from(user)
@@ -92,21 +132,12 @@ export async function verifyPersonalLink(
   if (!account) {
     return commandError('not-found');
   }
-
-  const now = new Date();
-  const sessionToken = crypto.randomUUID().replaceAll('-', '');
-  await db.insert(session).values({
-    id: `session_${crypto.randomUUID()}`,
-    expiresAt: new Date(now.getTime() + week),
-    token: sessionToken,
-    createdAt: now,
-    updatedAt: now,
-    userId: account.id,
-    loginKind: 'personal',
-  });
   return {
     ok: true,
-    value: { cookie: await sessionCookie(sessionToken), userId: person.id },
+    value: {
+      userId: person.id,
+      session: await issuePersonalSession(account.id),
+    },
   };
 }
 

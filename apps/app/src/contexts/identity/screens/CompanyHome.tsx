@@ -103,6 +103,7 @@ export function CompanyHome(props: {
     membershipId: string,
     role: 'admin' | 'member',
   ) => Promise<boolean>;
+  onSignOut: () => void;
 }) {
   const [tab, setTab] = useState<DirectoryTab>('team');
   const [panel, setPanel] = useState<Panel>({ kind: 'directory' });
@@ -164,11 +165,16 @@ export function CompanyHome(props: {
                   {placeLine(props.actor.role, props.members.length)}
                 </text>
               </view>
-              <Button onClick={() => setPanel({ kind: 'invite' })}>
-                <text className="text-base text-blue-600 font-semibold">
-                  Invite
-                </text>
-              </Button>
+              <view className="flex flex-col items-end">
+                <Button onClick={() => setPanel({ kind: 'invite' })}>
+                  <text className="text-base text-blue-600 font-semibold">
+                    Invite
+                  </text>
+                </Button>
+                <Button className="mt-1" onClick={props.onSignOut}>
+                  <text className="text-sm text-gray-500">Sign out</text>
+                </Button>
+              </view>
             </view>
           </view>
           <view className="flex flex-row px-6 border-b border-gray-200">

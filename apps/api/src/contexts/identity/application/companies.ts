@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import { db } from '../../../db';
+import { db, isUniqueViolation } from '../../../db';
 import { canInvite, canSetManager, canSetRole } from '../domain/access';
 import type { CompanyActor } from '../domain/company-actor';
 import { membershipRole } from '../domain/company-actor';
@@ -9,6 +9,7 @@ import {
   member,
   organization,
   session,
+  user,
 } from '../infra/auth-schema';
 import { sendInvite } from '../infra/mail';
 import { companies, memberships, reportingLines, users } from '../infra/schema';
@@ -37,14 +38,19 @@ function newId(prefix: string): string {
 }
 
 async function domainUserId(email: string, name: string): Promise<string> {
-  const existing = await db.select().from(users).where(eq(users.email, email));
-  const found = existing[0];
-  if (found) {
-    return found.id;
+  await db
+    .insert(users)
+    .values({ id: newId('user'), email, name })
+    .onConflictDoNothing({ target: users.email });
+  const rows = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, email));
+  const found = rows[0];
+  if (!found) {
+    throw new Error(`domain user for ${email} vanished after upsert`);
   }
-  const id = newId('user');
-  await db.insert(users).values({ id, email, name });
-  return id;
+  return found.id;
 }
 
 export async function createCompany(input: {
@@ -54,49 +60,48 @@ export async function createCompany(input: {
   companyName: string;
   slug: string;
 }): Promise<CommandResult<CompanyActor>> {
-  const taken = await db
-    .select()
-    .from(companies)
-    .where(eq(companies.slug, input.slug));
-  if (taken[0]) {
-    return commandError('conflict');
-  }
-
   const domainUser = await domainUserId(input.email, input.name);
   const companyId = newId('company');
   const membershipId = newId('membership');
   const now = new Date();
 
-  await db.transaction(async (tx) => {
-    await tx.insert(companies).values({
-      id: companyId,
-      name: input.companyName,
-      slug: input.slug,
+  try {
+    await db.transaction(async (tx) => {
+      await tx.insert(companies).values({
+        id: companyId,
+        name: input.companyName,
+        slug: input.slug,
+      });
+      await tx.insert(organization).values({
+        id: companyId,
+        name: input.companyName,
+        slug: input.slug,
+        createdAt: now,
+      });
+      await tx.insert(memberships).values({
+        id: membershipId,
+        companyId,
+        userId: domainUser,
+        role: 'owner',
+      });
+      await tx.insert(member).values({
+        id: membershipId,
+        organizationId: companyId,
+        userId: input.authUserId,
+        role: 'owner',
+        createdAt: now,
+      });
+      await tx
+        .update(session)
+        .set({ activeOrganizationId: companyId, updatedAt: now })
+        .where(eq(session.userId, input.authUserId));
     });
-    await tx.insert(organization).values({
-      id: companyId,
-      name: input.companyName,
-      slug: input.slug,
-      createdAt: now,
-    });
-    await tx.insert(memberships).values({
-      id: membershipId,
-      companyId,
-      userId: domainUser,
-      role: 'owner',
-    });
-    await tx.insert(member).values({
-      id: membershipId,
-      organizationId: companyId,
-      userId: input.authUserId,
-      role: 'owner',
-      createdAt: now,
-    });
-    await tx
-      .update(session)
-      .set({ activeOrganizationId: companyId, updatedAt: now })
-      .where(eq(session.userId, input.authUserId));
-  });
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      return commandError('conflict');
+    }
+    throw error;
+  }
 
   return {
     ok: true,
@@ -175,8 +180,14 @@ export async function inviteMember(
     inviterId: authUserId,
   });
 
+  const inviterRows = await db
+    .select({ name: user.name })
+    .from(user)
+    .where(eq(user.id, authUserId));
+  const inviterName = inviterRows[0]?.name || undefined;
+
   try {
-    await sendInvite(input.email, company.name, id);
+    await sendInvite(input.email, company.name, inviterName);
   } catch (error) {
     await db.delete(invitation).where(eq(invitation.id, id));
     throw error;
@@ -236,40 +247,72 @@ export async function acceptInvite(input: {
   const membershipId = newId('membership');
   const now = new Date();
 
-  await db.transaction(async (tx) => {
-    await tx.insert(memberships).values({
-      id: membershipId,
-      companyId: pending.organizationId,
-      userId: domainUser,
-      role,
-    });
-    await tx.insert(member).values({
-      id: membershipId,
-      organizationId: pending.organizationId,
-      userId: input.authUserId,
-      role,
-      createdAt: now,
-    });
-    await tx
-      .update(invitation)
-      .set({ status: 'accepted' })
-      .where(eq(invitation.id, pending.id));
-    await tx
-      .update(session)
-      .set({ activeOrganizationId: pending.organizationId, updatedAt: now })
-      .where(eq(session.userId, input.authUserId));
-  });
+  try {
+    return await db.transaction(
+      async (tx): Promise<CommandResult<CompanyActor>> => {
+        const existing = await tx
+          .select({ id: memberships.id })
+          .from(memberships)
+          .where(
+            and(
+              eq(memberships.companyId, pending.organizationId),
+              eq(memberships.userId, domainUser),
+            ),
+          );
+        const alreadyMember = existing.length > 0;
+        const claimed = await tx
+          .update(invitation)
+          .set({ status: alreadyMember ? 'canceled' : 'accepted' })
+          .where(
+            and(
+              eq(invitation.id, pending.id),
+              eq(invitation.status, 'pending'),
+            ),
+          )
+          .returning({ id: invitation.id });
+        if (claimed.length === 0) {
+          return commandError('not-found');
+        }
+        if (alreadyMember) {
+          return commandError('conflict', 'member');
+        }
 
-  return {
-    ok: true,
-    value: {
-      membershipId,
-      companyId: pending.organizationId,
-      role,
-      companyName: company.name,
-      slug: company.slug,
-    },
-  };
+        await tx.insert(memberships).values({
+          id: membershipId,
+          companyId: pending.organizationId,
+          userId: domainUser,
+          role,
+        });
+        await tx.insert(member).values({
+          id: membershipId,
+          organizationId: pending.organizationId,
+          userId: input.authUserId,
+          role,
+          createdAt: now,
+        });
+        await tx
+          .update(session)
+          .set({ activeOrganizationId: pending.organizationId, updatedAt: now })
+          .where(eq(session.userId, input.authUserId));
+
+        return {
+          ok: true,
+          value: {
+            membershipId,
+            companyId: pending.organizationId,
+            role,
+            companyName: company.name,
+            slug: company.slug,
+          },
+        };
+      },
+    );
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      return commandError('conflict', 'member');
+    }
+    throw error;
+  }
 }
 
 type PendingInviteRow = {

@@ -5,6 +5,7 @@ const storeName = 'session';
 type TokenStorage = {
   getItem: (key: string) => string | null;
   setItem: (key: string, value: string) => void;
+  removeItem: (key: string) => void;
 };
 
 type TokenRequest = {
@@ -23,6 +24,7 @@ type TokenDatabase = {
     objectStore: (name: string) => {
       get: (key: string) => TokenRequest;
       put: (value: string, key: string) => void;
+      delete: (key: string) => void;
     };
   };
 };
@@ -65,6 +67,14 @@ function writePage(token: string): void {
     return;
   }
   storage.setItem(storageKey, token);
+}
+
+function removePage(): void {
+  const storage = pageStorage();
+  if (!storage) {
+    return;
+  }
+  storage.removeItem(storageKey);
 }
 
 // The Lynx background thread has no localStorage. IndexedDB is what survives a reload there.
@@ -142,6 +152,18 @@ function writeIndexed(token: string): void {
   });
 }
 
+function removeIndexed(): void {
+  void openDatabase().then((database) => {
+    if (!database) {
+      return;
+    }
+    database
+      .transaction(storeName, 'readwrite')
+      .objectStore(storeName)
+      .delete(storageKey);
+  });
+}
+
 export function prepareSession(): Promise<void> {
   if (ready) {
     return ready;
@@ -172,6 +194,12 @@ function writeStoredSession(token: string): void {
   memoryToken = token;
   writePage(token);
   writeIndexed(token);
+}
+
+export function forgetSession(): void {
+  memoryToken = undefined;
+  removePage();
+  removeIndexed();
 }
 
 export function authHeaders(): Record<string, string> {

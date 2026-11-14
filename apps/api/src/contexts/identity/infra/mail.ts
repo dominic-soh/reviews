@@ -1,3 +1,5 @@
+import { authConfig } from '../../../auth-config';
+
 type MagicLinkDelivery = (email: string, url: string) => Promise<void>;
 
 async function deliverToMailpit(
@@ -51,14 +53,33 @@ export async function sendSignInCode(
 type InviteDelivery = (
   email: string,
   companyName: string,
-  invitationId: string,
+  link: string,
+  inviterName?: string,
 ) => Promise<void>;
 
-let deliverInvite: InviteDelivery = (email, companyName, invitationId) =>
+function inviteLink(email: string): string {
+  const url = new URL(authConfig.appURL);
+  url.searchParams.set('email', email);
+  return url.toString();
+}
+
+function inviteText(
+  companyName: string,
+  email: string,
+  link: string,
+  inviterName?: string,
+): string {
+  const intro = inviterName
+    ? `${inviterName} invited you to join ${companyName} on Reviews.`
+    : `You have been invited to join ${companyName} on Reviews.`;
+  return `${intro}\nOpen this link and sign in as ${email} to join:\n${link}`;
+}
+
+let deliverInvite: InviteDelivery = (email, companyName, link, inviterName) =>
   deliverToMailpit(
     email,
     `Join ${companyName} on Reviews`,
-    `You are invited to ${companyName} on Reviews.\nSign in as ${email} and we will add you to the company.\nInvitation: ${invitationId}`,
+    inviteText(companyName, email, link, inviterName),
   );
 
 export function setInviteDelivery(next: InviteDelivery): void {
@@ -68,7 +89,7 @@ export function setInviteDelivery(next: InviteDelivery): void {
 export async function sendInvite(
   email: string,
   companyName: string,
-  invitationId: string,
+  inviterName?: string,
 ): Promise<void> {
-  await deliverInvite(email, companyName, invitationId);
+  await deliverInvite(email, companyName, inviteLink(email), inviterName);
 }

@@ -25,6 +25,15 @@ Ada lands on the Demo company as the owner. The directory offers an invite. The 
 
 Any other address can request a link the same way. After it is opened, that person has no company yet, so the preview shows "Create your company" instead of the directory.
 
+## Production
+
+With `NODE_ENV=production`, the API refuses to start unless these are set:
+
+- `BETTER_AUTH_SECRET`: at least 32 characters.
+- `BETTER_AUTH_URL`: the API's own origin.
+- `ALLOWED_ORIGINS`: a comma-separated list of exact `https://` origins. CORS and better-auth `trustedOrigins` allow only these.
+- `APP_URL`: an exact `https://` origin for the app. Invite emails link here with the invited email in the `email` query param.
+
 ## Roadmap
 
 Status as of November 2026.
